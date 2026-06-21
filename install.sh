@@ -1,25 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DOTFILES_DIR="$HOME/.dotfiles/homelab-dotfiles"
+
+# ---- Make scripts/bin executable -----------------------------------------
+chmod +x "$DOTFILES_DIR/scripts/bin"/*
+
+# ---- Symlinks ------------------------------------------------------------
 # alacritty
-ln -sf $HOME/.dotfiles/homelab-dotfiles/home/alacritty $HOME/.config/alacritty
-# alacritty config folder
-git clone https://github.com/alacritty/alacritty-theme $HOME/.dotfiles/homelab-dotfiles/home/alacritty/themes
-ln -sf $HOME/.dotfiles/homelab-dotfiles/home/alacritty/themes $HOME/.config/alacritty/themes
+ln -sf "$DOTFILES_DIR/home/alacritty" "$HOME/.config/alacritty"
+# alacritty themes (clone only if not already present)
+if [ ! -d "$DOTFILES_DIR/home/alacritty/themes" ]; then
+    git clone https://github.com/alacritty/alacritty-theme "$DOTFILES_DIR/home/alacritty/themes"
+fi
 
 # yabai
-ln -s $HOME/.dotfiles/homelab-dotfiles/home/yabai $HOME/.config/yabai
-chmod +x ~/.yabairc
+ln -sf "$DOTFILES_DIR/home/yabai" "$HOME/.config/yabai"
+chmod +x "$DOTFILES_DIR/home/yabai/yabairc"
 
-ln -sf $HOME/.dotfiles/homelab-dotfiles/home/aerospace $HOME/.config/aerospace
-ln -sf $HOME/.dotfiles/homelab-dotfiles/home/starship $HOME/.config/starship
-ln -sf $HOME/.dotfiles/homelab-dotfiles/home/borders $HOME/.config/borders
+# starship
+ln -sf "$DOTFILES_DIR/home/starship" "$HOME/.config/starship"
 
-#cp ./config/pk10/.p10k.zsh ~/
-ln -sf  $HOME/.dotfiles/homelab-dotfiles/home/hammerspoon $HOME/.hammerspoon
-ln -sf  $HOME/.dotfiles/homelab-dotfiles/home/steampipe $HOME/.steampipe
-ln -sf  $HOME/.dotfiles/homelab-dotfiles/home/git-scripts/ $HOME/.config/git-scripts
-ln -sf  $HOME/.dotfiles/homelab-dotfiles/home/git $HOME/.git
+# borders
+ln -sf "$DOTFILES_DIR/home/borders" "$HOME/.config/borders"
 
-steampipe plugin install aws
-steampipe plugin install csv
-steampipe plugin install kubernetes
-steampipe plugin install jira
-steampipe plugin install cloudflare
+# hammerspoon
+ln -sf "$DOTFILES_DIR/home/hammerspoon" "$HOME/.hammerspoon"
+
+# git config
+ln -sf "$DOTFILES_DIR/home/git/.gitconfig" "$HOME/.gitconfig"
+
+# git scripts
+ln -sf "$DOTFILES_DIR/home/git-scripts/" "$HOME/.config/git-scripts"
+
+# skhd
+ln -sf "$DOTFILES_DIR/home/skhd" "$HOME/.config/skhd"
+
+# wezterm
+ln -sf "$DOTFILES_DIR/home/wezterm/.wezterm.lua" "$HOME/.wezterm.lua"
+
+# steampipe
+ln -sf "$DOTFILES_DIR/home/steampipe" "$HOME/.steampipe"
+
+# ---- Steampipe plugins (guarded) -----------------------------------------
+if command -v steampipe &>/dev/null; then
+    steampipe plugin install aws
+    steampipe plugin install csv
+    steampipe plugin install kubernetes
+    steampipe plugin install jira
+    steampipe plugin install cloudflare
+else
+    echo "steampipe not found — skipping plugin installs."
+fi
+
+# ---- Add scripts/bin to PATH in shell config ----------------------------
+ZSHRC_DOTFILES="$HOME/.dotfiles/homelab-os-install/zsh/.zshrc-dotfiles"
+SCRIPTS_BIN_LINE="export PATH=\"$DOTFILES_DIR/scripts/bin:\$PATH\""
+if [ -f "$ZSHRC_DOTFILES" ]; then
+    grep -qF 'scripts/bin' "$ZSHRC_DOTFILES" || echo "$SCRIPTS_BIN_LINE" >> "$ZSHRC_DOTFILES"
+fi
+
+echo "homelab-dotfiles symlinks applied."
