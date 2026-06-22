@@ -1,7 +1,7 @@
 
 [general]
 live_config_reload = true
-import = ["~/.config/alacritty/colors.toml"]
+import = ["~/.config/alacritty/colors.toml", "~/.config/alacritty/keybindings.toml"]
 
 [env]
 TERM = "xterm-256color"
@@ -35,25 +35,6 @@ family = "MesloLGS Nerd Font"
 style = "Regular"
 
 
-[keyboard]
-bindings = [
-  { key = "Left",  mods = "Command", action = "SelectPreviousTab" },
-  { key = "Right", mods = "Command", action = "SelectNextTab" },
-  { key = "K",     mods = "Command", action = "ClearHistory" },
-  { key = "K",     mods = "Command", chars = "\u000c" },
-  { key = "Right", mods = "Alt", chars = "\u001BF" },
-  { key = "Left",  mods = "Alt", chars = "\u001BB" },
-  { key = "Key0",  mods = "Alt", chars = "º" },
-  { key = "Key1",  mods = "Alt", chars = "¡" },
-  { key = "Key2",  mods = "Alt", chars = "€" },
-  { key = "Key3",  mods = "Alt", chars = "#" },
-  { key = "Key4",  mods = "Alt", chars = "¢" },
-  { key = "Key5",  mods = "Alt", chars = "∞" },
-  { key = "Key6",  mods = "Alt", chars = "§" },
-  { key = "Key7",  mods = "Alt", chars = "¶" },
-  { key = "Key8",  mods = "Alt", chars = "•" },
-  { key = "Key9",  mods = "Alt", chars = "ª" },
-]
 
 
 [debug]
@@ -86,10 +67,9 @@ y = 20
 
 [[hints.enabled]]
 binding = { key = "U", mods = "Control|Shift" }
-command = "open"
+command = { program = "sh", args = ["-c", "xdg-open \"$0\" 2>/dev/null || open \"$0\" 2>/dev/null"] }
 hyperlinks = true
 mouse.enabled = true
-mouse.mods = "Command"
 post_processing = true
 persist = false
 regex = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)[^\u0000-\u001F\u007F-\u009F<>\"\\s{-}\\^⟨⟩‘]+"
