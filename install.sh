@@ -75,11 +75,8 @@ else
     echo "steampipe not found — skipping plugin installs."
 fi
 
-# ---- Add scripts/bin to PATH in shell config ----------------------------
-ZSHRC_DOTFILES="$HOME/.dotfiles/homelab-os-install/zsh/.zshrc-dotfiles"
-SCRIPTS_BIN_LINE="export PATH=\"$DOTFILES_DIR/scripts/bin:\$PATH\""
-if [ -f "$ZSHRC_DOTFILES" ]; then
-    grep -qF 'scripts/bin' "$ZSHRC_DOTFILES" || echo "$SCRIPTS_BIN_LINE" >> "$ZSHRC_DOTFILES"
-fi
+# scripts/bin is added to PATH by homelab-os-install/zsh/export.sh, which is
+# versioned. Appending it here left the entry in a generated file that was lost
+# on the next checkout.
 
 echo "homelab-dotfiles symlinks applied."
