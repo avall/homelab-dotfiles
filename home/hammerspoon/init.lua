@@ -105,8 +105,8 @@ function hideWhenUnFocus(applicationName)
 end
 
 hs.application.enableSpotlightForNameSearches(true)
-bindHotkey("Wezterm", "/Users/alex.vall/Applications/Wezterm.app", { "Alt" }, "e", true)
-bindHotkey("Alacritty", "/Users/alex.vall/Applications/Alacritty.app", { "Alt" }, "d", true)
-bindHotkey("Alacritty", "/Users/alex.vall/Applications/Alacritty.app", { "Alt" }, "a", true)
-bindHotkey("IntelliJ IDEA", "/Users/alex.vall/Applications/IntelliJ IDEA.app", { "Alt" }, "i", false)
+bindHotkey("Wezterm", "/Wezterm.app", { "Alt" }, "e", true)
+bindHotkey("Alacritty", "/Applications/Alacritty.app", { "Alt" }, "d", true)
+bindHotkey("Alacritty", "/Applications/Alacritty.app", { "Alt" }, "a", true)
+bindHotkey("IntelliJ IDEA", "/IntelliJ IDEA.app", { "Alt" }, "i", false)
 hideWhenUnFocus('Alacritty')
