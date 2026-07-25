@@ -9,6 +9,9 @@ chmod +x "$DOTFILES_DIR/scripts/bin"/*
 
 # ---- Symlinks: cross-platform -----------------------------------------------
 
+# A fresh macOS account has no ~/.config, so the symlinks below would fail.
+mkdir -p "$HOME/.config"
+
 # alacritty base config
 ln -sf "$DOTFILES_DIR/home/alacritty" "$HOME/.config/alacritty"
 
