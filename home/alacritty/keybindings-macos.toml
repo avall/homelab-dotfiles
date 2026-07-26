@@ -3,9 +3,8 @@ bindings = [
   { key = "Left",  mods = "Command", action = "SelectPreviousTab" },
   { key = "Right", mods = "Command", action = "SelectNextTab" },
   { key = "K",     mods = "Command", action = "ClearHistory" },
-  { key = "K",     mods = "Command", chars = "" },
-  { key = "Right", mods = "Alt", chars = "F" },
-  { key = "Left",  mods = "Alt", chars = "B" },
+  { key = "Right", mods = "Alt", chars = "\u001BF" },
+  { key = "Left",  mods = "Alt", chars = "\u001BB" },
   { key = "Key0",  mods = "Alt", chars = "º" },
   { key = "Key1",  mods = "Alt", chars = "¡" },
   { key = "Key2",  mods = "Alt", chars = "€" },
@@ -16,4 +15,5 @@ bindings = [
   { key = "Key7",  mods = "Alt", chars = "¶" },
   { key = "Key8",  mods = "Alt", chars = "•" },
   { key = "Key9",  mods = "Alt", chars = "ª" },
+  { key = "Return", mods = "Shift", chars = "\u001B\r" },
 ]

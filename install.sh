@@ -31,6 +31,7 @@ fi
 
 # starship
 ln -sf "$DOTFILES_DIR/home/starship" "$HOME/.config/starship"
+ln -sf "$DOTFILES_DIR/home/starship/starship.toml" "$HOME/.config/starship.toml"
 
 # git config
 ln -sf "$DOTFILES_DIR/home/git/.gitconfig" "$HOME/.gitconfig"
