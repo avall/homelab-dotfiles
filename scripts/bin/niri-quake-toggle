@@ -1,0 +1,32 @@
+#!/usr/bin/env sh
+# Quake-style terminal toggle for niri, bound to Alt+D in config.kdl.
+#
+# Hyprland gets this for free with `togglespecialworkspace`: a workspace that
+# floats over whatever is on screen. niri has no special workspace and no
+# scratchpad, so this approximates one with a plain named workspace.
+#
+# The honest difference: this is a workspace SWITCH, not an overlay. The
+# terminal replaces the current view instead of dropping over it. That is the
+# ceiling of niri's primitives today, which is why config.kdl still carries
+# the Ghostty 1.4.0 note — `ghostty +toggle-quick-terminal` would give a real
+# overlay and let this script go away.
+#
+# Alacritty is pre-spawned on the quake workspace at startup by config.kdl, so
+# the shell session survives every toggle. Nothing here spawns or kills it.
+set -eu
+
+WORKSPACE="quake"
+
+# `is_focused` is the globally focused workspace — exactly one across all
+# monitors. (`is_active` is per-monitor, so it would match once per output.)
+# A workspace with no name yields null, hence the // "" fallback.
+focused=$(niri msg -j workspaces | jq -r '.[] | select(.is_focused) | .name // ""')
+
+if [ "$focused" = "$WORKSPACE" ]; then
+    # Known limitation: if you reached the quake workspace by some route other
+    # than this script, "previous" is whatever niri last recorded, not
+    # necessarily where you came from.
+    niri msg action focus-workspace-previous
+else
+    niri msg action focus-workspace "$WORKSPACE"
+fi

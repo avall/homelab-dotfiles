@@ -66,6 +66,14 @@ if [ "$OS" = "Linux" ] && [ -f /etc/arch-release ]; then
     # hyprland (replaces yabai + skhd + borders + hammerspoon)
     mkdir -p "$HOME/.config/hypr"
     ln -sf "$DOTFILES_DIR/home/hyprland/hyprland.conf" "$HOME/.config/hypr/hyprland.conf"
+
+    # niri — the alternative compositor offered by the installer's prompt.
+    # Both configs are linked unconditionally rather than branching on which
+    # one is installed: each compositor only ever reads its own path, so the
+    # unused file is inert, and this script has no way to know which the
+    # installer picked.
+    mkdir -p "$HOME/.config/niri"
+    ln -sf "$DOTFILES_DIR/home/niri/config.kdl" "$HOME/.config/niri/config.kdl"
 fi
 
 # ---- Steampipe plugins (guarded) -----------------------------------------
