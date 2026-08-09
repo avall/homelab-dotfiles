@@ -225,7 +225,9 @@ hl.bind("ALT + D", hl.dsp.workspace.toggle_special("quake"))
 hl.bind("ALT + A", hl.dsp.workspace.toggle_special("quake"))
 
 -- Application launchers.
-hl.bind("ALT + E", hl.dsp.exec_cmd("wezterm"))
+-- ALT+E used to launch wezterm here, mirroring hammerspoon's Alt+E on macOS.
+-- Dropped along with the package: a bind pointing at a missing binary fails
+-- silently, which is worse than having no bind at all.
 hl.bind("ALT + I", hl.dsp.exec_cmd(editor))
 
 hl.bind("CTRL + SUPER + A", hl.dsp.exec_cmd(terminal))

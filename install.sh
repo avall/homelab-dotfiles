@@ -39,9 +39,6 @@ ln -sf "$DOTFILES_DIR/home/git/.gitconfig" "$HOME/.gitconfig"
 # git scripts
 ln -sf "$DOTFILES_DIR/home/git-scripts/" "$HOME/.config/git-scripts"
 
-# wezterm
-ln -sf "$DOTFILES_DIR/home/wezterm/.wezterm.lua" "$HOME/.wezterm.lua"
-
 # steampipe
 ln -sf "$DOTFILES_DIR/home/steampipe" "$HOME/.steampipe"
 
