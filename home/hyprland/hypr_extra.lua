@@ -14,6 +14,13 @@ local menu     = "hyprlauncher"
 local browser  = "google-chrome-stable"
 local editor   = "idea-ultimate"
 
+-- Both come from archinstall's Hyprland profile rather than from a manifest
+-- choice, and this config replaces the profile's own, which bound them to
+-- SUPER+Q and SUPER+E. Those two keys mean something else here, so they are
+-- rebound below instead of being left unreachable.
+local altTerminal = "kitty"
+local fileManager = "dolphin"
+
 --------------------------------------------------------------- ENVIRONMENT --
 
 -- Carried over from the stock config. The old .conf set no environment at all,
@@ -126,6 +133,25 @@ hl.config({
         pseudotile     = false,
         preserve_split = true,
         split_ratio    = 0.6,
+
+        -- Windows never lose half their height when a second program joins
+        -- them on screen. Dwindle picks the split orientation from the
+        -- container's own proportions, not from the app:
+        --
+        --   SIDEBYSIDE = box.w > box.h * split_width_multiplier
+        --   splitTop   = !SIDEBYSIDE          (DwindleAlgorithm.cpp)
+        --
+        -- At the stock 1.0 the first split on a 2560x1440 screen is fine, but
+        -- each half is then 1280x1440 — taller than wide — so the next window
+        -- stacks and halves the height. That is what happens opening dolphin
+        -- next to kitty, both of which come from archinstall's Hyprland
+        -- profile rather than from this repo's manifests.
+        --
+        -- 0.1 means stacking would need a container under ~144px wide, so in
+        -- practice everything tiles side by side at full height. The cost is
+        -- narrow columns once several windows share a screen; raise this back
+        -- toward 1.0 to trade height for width again.
+        split_width_multiplier = 0.1,
     },
 
     misc = {
@@ -201,6 +227,14 @@ hl.bind("CTRL + SUPER + A", hl.dsp.exec_cmd(terminal))
 hl.bind("CTRL + SUPER + C", hl.dsp.exec_cmd("code"))
 hl.bind("CTRL + SUPER + I", hl.dsp.exec_cmd(editor))
 hl.bind("CTRL + SUPER + B", hl.dsp.exec_cmd(browser))
+
+-- Replacements for the two shortcuts archinstall's profile shipped. SUPER+Q is
+-- close-window here and SUPER+E is unused, so neither original could be kept.
+-- K and D are free: the only SUPER-plus-letter binds in this file are R, Q, F,
+-- V, P and J, the focus loop uses arrow keys rather than hjkl, and the
+-- workspace loop uses digits. ALT+D is the quake toggle — a different modifier.
+hl.bind(mainMod .. " + K", hl.dsp.exec_cmd(altTerminal))
+hl.bind(mainMod .. " + D", hl.dsp.exec_cmd(fileManager))
 
 -- --toggle because hyprlauncher is client/server: a second press reaches the
 -- running instance and closes it rather than being swallowed.
