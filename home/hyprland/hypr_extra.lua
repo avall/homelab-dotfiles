@@ -132,7 +132,12 @@ hl.config({
     dwindle = {
         pseudotile     = false,
         preserve_split = true,
-        split_ratio    = 0.6,
+
+        -- A `split_ratio = 0.6` used to sit here. No such key exists in
+        -- Hyprland — the real one is default_split_ratio, on a 0.1-1.9 scale
+        -- where 1.0 is an even split, not a fraction — so the line never did
+        -- anything. Removed rather than renamed: fixing the name would have
+        -- switched on an uneven split that was never actually in effect.
 
         -- Windows never lose half their height when a second program joins
         -- them on screen. Dwindle picks the split orientation from the
