@@ -3,24 +3,104 @@ set -e
 set -u
 set -o pipefail
 
-if [[ $# == 0 ]]; then
-  tree .
-  exit 0
-elif [[ $# == 1 ]]; then
-  what="$1"
-  where="$(pwd)"
-elif [[ $# == 2 ]]; then
-  what="$1"
-  where="$2"
-else
-  echo 'too many arguments' 1>&2
+usage() {
+  cat <<'EOF'
+Usage: treefind [OPTIONS] [PATH]
+
+Print a directory tree using eza. Defaults to the current directory.
+
+Options:
+  -p, --pattern GLOB   only show entries whose name contains GLOB, each match
+                       rendered as its own tree root
+  -i, --icons WHEN     when to show icons: always, auto, never (default: never)
+  -L, --level DEPTH    limit recursion depth (default: unlimited)
+  -h, --help           show this help
+
+Any other flag is forwarded to eza as-is.
+
+Pattern matching is case-insensitive unless the pattern contains an uppercase
+character.
+EOF
+}
+
+icons='never'
+pattern=''
+root=''
+eza_args=()
+
+while (($#)); do
+  case "$1" in
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    -p | --pattern)
+      pattern="$2"
+      shift 2
+      ;;
+    -p=* | --pattern=*)
+      pattern="${1#*=}"
+      shift
+      ;;
+    -i | --icons)
+      icons="$2"
+      shift 2
+      ;;
+    -i=* | --icons=*)
+      icons="${1#*=}"
+      shift
+      ;;
+    -L | --level)
+      eza_args+=(--level "$2")
+      shift 2
+      ;;
+    -L=* | --level=*)
+      eza_args+=(--level "${1#*=}")
+      shift
+      ;;
+    -*)
+      eza_args+=("$1")
+      shift
+      ;;
+    *)
+      if [[ -n "$root" ]]; then
+        echo "treefind: unexpected argument '$1'" 1>&2
+        exit 1
+      fi
+      root="$1"
+      shift
+      ;;
+  esac
+done
+
+root="${root:-.}"
+
+if [[ ! -d "$root" ]]; then
+  echo "treefind: not a directory: $root" 1>&2
   exit 1
 fi
 
-if [[ "$what" == *[[:upper:]]* ]]; then
-  ignore_case_arg=''
-else
-  ignore_case_arg='--ignore-case'
+eza_args+=(--tree "--icons=$icons")
+
+if [[ -z "$pattern" ]]; then
+  exec eza "${eza_args[@]}" -- "$root"
 fi
 
-tree --prune "$ignore_case_arg" --matchdirs -P "$what" "$where"
+if ((BASH_VERSINFO[0] < 4)); then
+  echo "treefind: --pattern needs bash 4+ (globstar), running ${BASH_VERSION}" 1>&2
+  exit 1
+fi
+
+shopt -s globstar nullglob
+if [[ "$pattern" != *[[:upper:]]* ]]; then
+  shopt -s nocaseglob
+fi
+
+matches=("$root"/**/*"$pattern"*)
+
+if ((${#matches[@]} == 0)); then
+  echo "treefind: no matches for '$pattern' under $root" 1>&2
+  exit 1
+fi
+
+exec eza "${eza_args[@]}" -- "${matches[@]}"
