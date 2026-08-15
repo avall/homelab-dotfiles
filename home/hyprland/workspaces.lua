@@ -1,8 +1,0 @@
--- Workspace-to-monitor bindings, required from hyprland.lua.
---
--- MANAGED BY nwg-displays: its Workspaces dialog rewrites this file whole.
---
--- Empty on purpose. With no rules a workspace lives on whichever monitor was
--- focused when it was first opened. Once assigned, nwg-displays writes
--- hl.workspace_rule entries and marks the first workspace of each monitor as
--- the default one.
