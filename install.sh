@@ -7,20 +7,60 @@ OS="$(uname -s)"
 # ---- Make scripts/bin executable -----------------------------------------
 chmod +x "$DOTFILES_DIR/scripts/bin"/*
 
+# ---- Helpers -----------------------------------------------------------------
+
+# Symlinks a directory, replacing whatever is already at the destination.
+#
+# `ln -sf` on its own is not idempotent for directories: when the destination is
+# already a symlink to a directory, ln follows it and creates the new link
+# *inside* the target -- GNU coreutils defaults dereference_dest_dir_symlinks to
+# true (ln.c) and BSD ln behaves the same. A second run of this script therefore
+# left a self-referencing symlink inside this repo, e.g. home/alacritty/alacritty.
+#
+# -n fixes the symlink case but not a pre-existing *real* directory: POSIX says
+# a final operand naming a directory gets the link created inside it, so
+# ln would quietly leave the user's own config in place and drop a stray
+# alacritty/alacritty next to it -- no error, and the config this repo installs
+# never gets read. Moving the real path aside first is what makes that visible,
+# and it matches how homelab-os-install already handles ~/.zshrc and how the
+# Hyprland block used to handle hyprland.lua.
+#
+# Only real paths are backed up: re-running over our own symlink has to stay a
+# no-op, which is the whole point of -n above.
+link_dir() {
+    local src="$1" dest="$2"
+
+    if [ -e "$dest" ] && [ ! -L "$dest" ]; then
+        local backup="$dest.backup-$(date +%Y%m%d%H%M%S)"
+        mv "$dest" "$backup"
+        echo "Existing $dest backed up to $backup"
+    fi
+
+    ln -sfn "$src" "$dest"
+}
+
 # ---- Symlinks: cross-platform -----------------------------------------------
 
 # A fresh macOS account has no ~/.config, so the symlinks below would fail.
 mkdir -p "$HOME/.config"
 
 # alacritty base config
-ln -sf "$DOTFILES_DIR/home/alacritty" "$HOME/.config/alacritty"
+link_dir "$DOTFILES_DIR/home/alacritty" "$HOME/.config/alacritty"
 
 # alacritty themes (clone only if not already present)
 if [ ! -d "$DOTFILES_DIR/home/alacritty/themes" ]; then
     git clone https://github.com/alacritty/alacritty-theme "$DOTFILES_DIR/home/alacritty/themes"
 fi
 
-# alacritty platform keybindings
+# alacritty platform keybindings.
+#
+# alacritty.toml imports ~/.config/alacritty/keybindings.toml, and this picks
+# which of the two platform files that name resolves to. The link is generated
+# rather than versioned: it used to be committed, which meant the repo shipped an
+# absolute /Users/... path that dangles on Arch until this script runs, and once
+# it did run the rewritten link showed up as an unstageable permanent diff on
+# every non-macOS machine. It is in .gitignore for that reason -- this line is
+# the only thing that should ever create it.
 if [ "$OS" = "Darwin" ]; then
     ln -sf "$DOTFILES_DIR/home/alacritty/keybindings-macos.toml" \
            "$DOTFILES_DIR/home/alacritty/keybindings.toml"
@@ -30,17 +70,17 @@ else
 fi
 
 # starship
-ln -sf "$DOTFILES_DIR/home/starship" "$HOME/.config/starship"
+link_dir "$DOTFILES_DIR/home/starship" "$HOME/.config/starship"
 ln -sf "$DOTFILES_DIR/home/starship/starship.toml" "$HOME/.config/starship.toml"
 
 # git config
 ln -sf "$DOTFILES_DIR/home/git/.gitconfig" "$HOME/.gitconfig"
 
 # git scripts
-ln -sf "$DOTFILES_DIR/home/git-scripts/" "$HOME/.config/git-scripts"
+link_dir "$DOTFILES_DIR/home/git-scripts" "$HOME/.config/git-scripts"
 
 # steampipe
-ln -sf "$DOTFILES_DIR/home/steampipe" "$HOME/.steampipe"
+link_dir "$DOTFILES_DIR/home/steampipe" "$HOME/.steampipe"
 
 # ---- Symlinks: macOS-only ---------------------------------------------------
 if [ "$OS" = "Darwin" ]; then
