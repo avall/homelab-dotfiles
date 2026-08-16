@@ -69,6 +69,25 @@ else
            "$DOTFILES_DIR/home/alacritty/keybindings.toml"
 fi
 
+# alacritty platform theme.
+#
+# alacritty.toml imports ~/.config/alacritty/platform-theme.toml. On Linux that
+# points at dank-theme.toml, which DankMaterialShell writes on install and
+# rewrites on every theme change. macOS has no DankLinux and that file would
+# never exist there, so the name resolves to an empty file instead. Generated
+# rather than versioned, same reason as keybindings.toml above.
+if [ "$OS" = "Darwin" ]; then
+    rm -f "$DOTFILES_DIR/home/alacritty/platform-theme.toml"
+    : > "$DOTFILES_DIR/home/alacritty/platform-theme.toml"
+else
+    # Seed an empty file so the import does not dangle when this script runs
+    # before DankLinux; DankLinux overwrites it with the real theme.
+    [ -e "$DOTFILES_DIR/home/alacritty/dank-theme.toml" ] || \
+        : > "$DOTFILES_DIR/home/alacritty/dank-theme.toml"
+    ln -sf "$DOTFILES_DIR/home/alacritty/dank-theme.toml" \
+           "$DOTFILES_DIR/home/alacritty/platform-theme.toml"
+fi
+
 # starship
 link_dir "$DOTFILES_DIR/home/starship" "$HOME/.config/starship"
 ln -sf "$DOTFILES_DIR/home/starship/starship.toml" "$HOME/.config/starship.toml"
