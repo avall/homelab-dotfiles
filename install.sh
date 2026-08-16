@@ -61,12 +61,16 @@ fi
 # it did run the rewritten link showed up as an unstageable permanent diff on
 # every non-macOS machine. It is in .gitignore for that reason -- this line is
 # the only thing that should ever create it.
+#
+# The targets are relative on purpose. A symlink stores a raw string that the
+# kernel resolves against the link's own directory, with no shell expansion, so
+# an absolute "$DOTFILES_DIR/..." bakes in /Users/alex.vall or /home/avall at
+# creation time -- which is how the committed link came to dangle on the other
+# OS. Both files are siblings of the link, so a bare filename is portable.
 if [ "$OS" = "Darwin" ]; then
-    ln -sf "$DOTFILES_DIR/home/alacritty/keybindings-macos.toml" \
-           "$DOTFILES_DIR/home/alacritty/keybindings.toml"
+    ln -sf keybindings-macos.toml "$DOTFILES_DIR/home/alacritty/keybindings.toml"
 else
-    ln -sf "$DOTFILES_DIR/home/alacritty/keybindings-linux.toml" \
-           "$DOTFILES_DIR/home/alacritty/keybindings.toml"
+    ln -sf keybindings-linux.toml "$DOTFILES_DIR/home/alacritty/keybindings.toml"
 fi
 
 # alacritty platform theme.
@@ -84,8 +88,7 @@ else
     # before DankLinux; DankLinux overwrites it with the real theme.
     [ -e "$DOTFILES_DIR/home/alacritty/dank-theme.toml" ] || \
         : > "$DOTFILES_DIR/home/alacritty/dank-theme.toml"
-    ln -sf "$DOTFILES_DIR/home/alacritty/dank-theme.toml" \
-           "$DOTFILES_DIR/home/alacritty/platform-theme.toml"
+    ln -sf dank-theme.toml "$DOTFILES_DIR/home/alacritty/platform-theme.toml"
 fi
 
 # starship
