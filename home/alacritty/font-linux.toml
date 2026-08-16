@@ -1,0 +1,15 @@
+# Alacritty point size on Linux. Imported through the generated
+# platform-font.toml symlink; see alacritty.toml.
+#
+# Why this cannot be the macOS value: alacritty on Wayland multiplies its point
+# size by the output scale, and macOS does not expose Retina that way. The same
+# 12.8 that is correct on the Mac rendered at roughly 19pt on the ThinkPad while
+# Hyprland had the panel at scale 1.5, which read as a broken config rather than
+# an applied one.
+#
+# 12.0 matches kitty, the other terminal DankLinux can deploy, which is set to
+# the same size in homelab-os-install/arch/config/kitty/kitty.conf. Keep the two
+# in step: switching terminals should not change how big the text looks.
+
+[font]
+size = 12.0

@@ -73,6 +73,19 @@ else
     ln -sf keybindings-linux.toml "$DOTFILES_DIR/home/alacritty/keybindings.toml"
 fi
 
+# alacritty platform font size.
+#
+# Only the point size differs between the two machines -- the families live in
+# alacritty.toml because they are the same everywhere. Alacritty on Wayland
+# multiplies the size by the output scale and macOS does not, so one shared
+# number cannot be right on both. Relative target and .gitignore for the same
+# reasons as the two blocks around it.
+if [ "$OS" = "Darwin" ]; then
+    ln -sf font-macos.toml "$DOTFILES_DIR/home/alacritty/platform-font.toml"
+else
+    ln -sf font-linux.toml "$DOTFILES_DIR/home/alacritty/platform-font.toml"
+fi
+
 # alacritty platform theme.
 #
 # alacritty.toml imports ~/.config/alacritty/platform-theme.toml. On Linux that

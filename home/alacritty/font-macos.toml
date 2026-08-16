@@ -1,0 +1,9 @@
+# Alacritty point size on macOS. Imported through the generated
+# platform-theme sibling platform-font.toml; see alacritty.toml.
+#
+# Unchanged from the long-standing shared value. macOS reports a 1.0 scale to
+# the application and does the Retina work behind it, so the number here is the
+# number that renders.
+
+[font]
+size = 12.8
