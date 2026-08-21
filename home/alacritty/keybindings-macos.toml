@@ -15,5 +15,4 @@ bindings = [
   { key = "Key7",  mods = "Alt", chars = "¶" },
   { key = "Key8",  mods = "Alt", chars = "•" },
   { key = "Key9",  mods = "Alt", chars = "ª" },
-  { key = "Return", mods = "Shift", chars = "\u001B\r" },
 ]

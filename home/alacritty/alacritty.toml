@@ -82,3 +82,29 @@ mouse.enabled = true
 post_processing = true
 persist = false
 regex = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)[^\u0000-\u001F\u007F-\u009F<>\"\\s{-}\\^⟨⟩‘]+"
+
+# Shift+Enter must send something Enter does not, or Claude Code cannot tell the
+# two apart and submits instead of opening a new line. A terminal does not do
+# this on its own; the key has to be mapped by hand.
+#
+# ESC CR is not a guess and not ours: it is byte for byte what `claude
+# /terminal-setup` writes for Alacritty, read out of the shipped binary. The
+# block is kept in that exact layout -- separate lines, this key order -- because
+# terminal-setup decides whether it already installed the binding by searching
+# the file for the literal strings `key = "Return"` and `mods = "Shift"`. Keep
+# the shape and it recognises this one and leaves it alone; reformat it into an
+# inline table and it will happily add a SECOND binding.
+#
+# Declared here, in the shared config, rather than in the per-platform
+# keybindings files, and that placement is the fix for a real bug. It used to
+# live in BOTH this file and keybindings-macos.toml. Bindings from an import and
+# from the importing file are combined rather than replaced, so on macOS -- the
+# only platform where keybindings.toml resolves to the macOS file -- Shift+Enter
+# sent ESC CR twice and produced two newlines. Removing it from here fixed macOS
+# and broke Linux, where keybindings-linux.toml never had it, leaving zero.
+# One declaration in the file both platforms read is the only version of this
+# that cannot drift.
+[[keyboard.bindings]]
+key = "Return"
+mods = "Shift"
+chars = "\u001B\r"
