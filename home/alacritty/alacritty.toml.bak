@@ -82,3 +82,9 @@ mouse.enabled = true
 post_processing = true
 persist = false
 regex = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)[^\u0000-\u001F\u007F-\u009F<>\"\\s{-}\\^⟨⟩‘]+"
+
+[keyboard]
+bindings = [
+  # Shift+Enter sends ESC CR so Claude Code inserts a newline instead of submitting.
+  { key = "Return", mods = "Shift", chars = "\u001B\r" },
+]
