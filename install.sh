@@ -119,18 +119,26 @@ link_dir "$DOTFILES_DIR/home/steampipe" "$HOME/.steampipe"
 
 # ---- Symlinks: macOS-only ---------------------------------------------------
 if [ "$OS" = "Darwin" ]; then
+    # link_dir rather than a bare `ln -sf`, and the difference is not cosmetic.
+    # With -f alone, a destination that is already a symlink to a directory is
+    # followed rather than replaced, so ln creates the new link INSIDE the
+    # directory it points at. Re-running the installer therefore produced
+    # home/hammerspoon/hammerspoon -> home/hammerspoon, a self-referential link
+    # that then got committed and shipped to every clone. link_dir passes -n, so
+    # the symlink itself is the thing replaced.
+
     # yabai
-    ln -sf "$DOTFILES_DIR/home/yabai" "$HOME/.config/yabai"
+    link_dir "$DOTFILES_DIR/home/yabai" "$HOME/.config/yabai"
     chmod +x "$DOTFILES_DIR/home/yabai/yabairc"
 
     # borders
-    ln -sf "$DOTFILES_DIR/home/borders" "$HOME/.config/borders"
+    link_dir "$DOTFILES_DIR/home/borders" "$HOME/.config/borders"
 
     # hammerspoon
-    ln -sf "$DOTFILES_DIR/home/hammerspoon" "$HOME/.hammerspoon"
+    link_dir "$DOTFILES_DIR/home/hammerspoon" "$HOME/.hammerspoon"
 
     # skhd
-    ln -sf "$DOTFILES_DIR/home/skhd" "$HOME/.config/skhd"
+    link_dir "$DOTFILES_DIR/home/skhd" "$HOME/.config/skhd"
 fi
 
 # ---- Symlinks: Arch Linux-only ----------------------------------------------

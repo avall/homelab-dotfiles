@@ -1,5 +1,5 @@
 [user]
-	email = alex.vall.mainou@gmail.com
+	email = alex.vall@cinarra.com
 	name = Alex Vall
 
 [alias]
@@ -28,3 +28,14 @@
 [interactive]
  diffFilter = diff-so-fancy --patch
 
+[credential "https://github.com"]
+	helper = 
+	helper = !/opt/homebrew/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper = 
+	helper = !/opt/homebrew/bin/gh auth git-credential
+[merge]
+	tool = ec
+[mergetool "ec"]
+	cmd = ec \"$BASE\" \"$LOCAL\" \"$REMOTE\" \"$MERGED\"
+	trustExitCode = true

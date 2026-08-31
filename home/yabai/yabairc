@@ -53,6 +53,20 @@ options=(
 	hidpi=off
 	active_color=0xffff9300
 	inactive_color=0xff414550
+	# Alacritty draws its own border, half this width, from
+	# home/hammerspoon/init.lua. It has to be excluded here because `width` is a
+	# global setting: `man borders` (1.9.0) lists blacklist and whitelist as the
+	# only per-application options, and a second instance is not a way around it
+	# either -- "if an instance of borders is already running, subsequent
+	# invocations will update the existing process". Without this line Alacritty
+	# would carry both borders at once.
+	#
+	# Lowercase, and that is not a typo. The list is matched against the process
+	# name, not the application name: src/windows.c calls proc_name(pid, ...) and
+	# passes the result straight to app_allowed(). Alacritty.app runs an
+	# executable called `alacritty`, which is what `ps -eo ucomm=` reports, so
+	# "Alacritty" silently matches nothing at all.
+	blacklist="alacritty"
 )
 
 borders "${options[@]}"
