@@ -127,12 +127,34 @@ if [ "$OS" = "Darwin" ]; then
     # that then got committed and shipped to every clone. link_dir passes -n, so
     # the symlink itself is the thing replaced.
 
+    # omniwm
+    # The whole directory, so modes/ and omniwm-mode.sh are reachable from
+    # ~/.config/omniwm as well: the mode switcher resolves its own symlink to
+    # find the mode files, and OmniWM reads settings.toml from here.
+    link_dir "$DOTFILES_DIR/home/omniwm" "$HOME/.config/omniwm"
+    chmod +x "$DOTFILES_DIR/home/omniwm/omniwm-mode.sh"
+
+    # OmniWM rewrites settings.toml itself whenever a setting is changed from its
+    # GUI, so the file is seeded rather than symlinked to a mode file: it is the
+    # live copy, and modes/ holds the two it is copied from. Seeded only when
+    # absent, or every run would discard whatever mode is currently selected.
+    if [ ! -f "$DOTFILES_DIR/home/omniwm/settings.toml" ]; then
+        cp "$DOTFILES_DIR/home/omniwm/modes/niri.toml" \
+            "$DOTFILES_DIR/home/omniwm/settings.toml"
+    fi
+
     # yabai
+    # Kept linked although nothing starts yabai any more -- OmniWM replaces it,
+    # see osx/scripts/install-tiling.sh in homelab-os-install. The config stays so
+    # the fallback is one `yabai --start-service` away.
     link_dir "$DOTFILES_DIR/home/yabai" "$HOME/.config/yabai"
     chmod +x "$DOTFILES_DIR/home/yabai/yabairc"
 
     # borders
+    # Still the only thing drawing window borders: OmniWM's own [borders] has no
+    # per-application blacklist and no unfocused colour, and bordersrc uses both.
     link_dir "$DOTFILES_DIR/home/borders" "$HOME/.config/borders"
+    chmod +x "$DOTFILES_DIR/home/borders/bordersrc"
 
     # hammerspoon
     link_dir "$DOTFILES_DIR/home/hammerspoon" "$HOME/.hammerspoon"

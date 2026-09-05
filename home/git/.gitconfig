@@ -1,6 +1,7 @@
+
 [user]
-	email = alex.vall@cinarra.com
-	name = Alex Vall
+	email = alex.vall.mainou@gmail.com
+	name = avall
 
 [alias]
  graph = log --oneline --graph --decorate
@@ -39,3 +40,9 @@
 [mergetool "ec"]
 	cmd = ec \"$BASE\" \"$LOCAL\" \"$REMOTE\" \"$MERGED\"
 	trustExitCode = true
+
+[includeIf "hasconfig:remote.*.url:git@github.com:cinarra/**"]
+    path = ~/.gitconfig-cinarra
+
+[includeIf "hasconfig:remote.*.url:https://github.com/cinarra/**"]
+    path = ~/.gitconfig-cinarra

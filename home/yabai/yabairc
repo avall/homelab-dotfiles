@@ -47,26 +47,37 @@ yabai -m rule --add app="^Stickies$" manage=off
 yabai -m rule --apply
 
 # yabai -m config external_bar all:32:0
-options=(
-	style=round
-	width=6.0
-	hidpi=off
-	active_color=0xffff9300
-	inactive_color=0xff414550
-	# Alacritty draws its own border, half this width, from
-	# home/hammerspoon/init.lua. It has to be excluded here because `width` is a
-	# global setting: `man borders` (1.9.0) lists blacklist and whitelist as the
-	# only per-application options, and a second instance is not a way around it
-	# either -- "if an instance of borders is already running, subsequent
-	# invocations will update the existing process". Without this line Alacritty
-	# would carry both borders at once.
-	#
-	# Lowercase, and that is not a typo. The list is matched against the process
-	# name, not the application name: src/windows.c calls proc_name(pid, ...) and
-	# passes the result straight to app_allowed(). Alacritty.app runs an
-	# executable called `alacritty`, which is what `ps -eo ucomm=` reports, so
-	# "Alacritty" silently matches nothing at all.
-	blacklist="alacritty"
-)
 
-borders "${options[@]}"
+# borders is no longer started from here. It runs as its own launchd service
+# (`brew services start felixkratz/formulae/borders`, started by
+# homelab-os-install/osx/scripts/install-tiling.sh) and reads the same options from
+# home/borders/bordersrc, which the block below duplicated line for line.
+#
+# OmniWM replaced yabai, so nothing runs this file any more and a borders started
+# from here would never start at all. Leaving it live would be worse than that the
+# moment yabai is started by hand as a fallback: borders would then be launched
+# twice, once by the service and once from here.
+#
+# options=(
+# 	style=round
+# 	width=6.0
+# 	hidpi=off
+# 	active_color=0xffff9300
+# 	inactive_color=0xff414550
+# 	# Alacritty draws its own border, half this width, from
+# 	# home/hammerspoon/init.lua. It has to be excluded here because `width` is a
+# 	# global setting: `man borders` (1.9.0) lists blacklist and whitelist as the
+# 	# only per-application options, and a second instance is not a way around it
+# 	# either -- "if an instance of borders is already running, subsequent
+# 	# invocations will update the existing process". Without this line Alacritty
+# 	# would carry both borders at once.
+# 	#
+# 	# Lowercase, and that is not a typo. The list is matched against the process
+# 	# name, not the application name: src/windows.c calls proc_name(pid, ...) and
+# 	# passes the result straight to app_allowed(). Alacritty.app runs an
+# 	# executable called `alacritty`, which is what `ps -eo ucomm=` reports, so
+# 	# "Alacritty" silently matches nothing at all.
+# 	blacklist="alacritty"
+# )
+#
+# borders "${options[@]}"
