@@ -1,0 +1,21 @@
+#!/bin/bash
+set -e
+
+SUDOERS_FILE="/etc/sudoers.d/temp_brew"
+
+
+# Garantiza la limpieza pase lo que pase (error, Ctrl+C, etc.)
+cleanup() {
+  sudo rm -f "$SUDOERS_FILE"
+  echo "✅  NOPASSWD rule removed."
+}
+trap cleanup EXIT
+
+# Paso 2: regla temporal (este sudo sí te pedirá la contraseña, una vez)
+echo "$(whoami) ALL=(ALL) NOPASSWD: ALL" | sudo tee "$SUDOERS_FILE" > /dev/null
+echo "🔓 Temporal rule created."
+
+# Paso 3: upgrade sin prompts
+brew upgrade --greedy
+
+echo "🎉 all brew apps  upgraded."
