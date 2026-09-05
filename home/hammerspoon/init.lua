@@ -783,6 +783,18 @@ secureEntryWatcher:start()
 -- when it was left anonymous.
 secureEntryTimer = hs.timer.doEvery(20, untickSecureKeyboardEntry)
 
+-- And once at load, because the launch watcher above cannot catch a login.
+-- OmniWM and Hammerspoon both start then, OmniWM first -- measured a second
+-- apart, 00:16:12 against 00:16:13 -- so its `launched` event fires before this
+-- file has run and nothing is listening for it. Without this the floating rules
+-- stay lost after every reboot: 13 rules and none of the eight floating ones,
+-- which is why Alacritty came back tiled and ALT+D stopped placing it.
+hs.timer.doAfter(8, function()
+	if hs.application.get("OmniWM") then
+		run("/bin/bash", { os.getenv("HOME") .. "/.config/omniwm/omniwm-mode.sh", "rules" })
+	end
+end)
+
 hs.application.enableSpotlightForNameSearches(true)
 bindHotkey("Alacritty", "/Applications/Alacritty.app", { "Alt" }, "d", true)
 bindHotkey("Alacritty", "/Applications/Alacritty.app", { "Alt" }, "a", true)
