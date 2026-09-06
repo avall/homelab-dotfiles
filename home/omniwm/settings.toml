@@ -10,7 +10,7 @@ schemaVersion = 2
 mode = "dark"
 
 [borders]
-enabled = false
+enabled = true
 width = 5.0
 
 [borders.color]
