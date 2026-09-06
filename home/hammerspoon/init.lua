@@ -335,6 +335,61 @@ end
 bindSpanHotkeys()
 hs.keycodes.inputSourceChanged(bindSpanHotkeys)
 
+-- Minimize the focused window on Control+Option+Command+M, in two steps, and the
+-- first one is not optional.
+--
+-- OmniWM has no minimize of its own: it is absent from every hotkey id the app
+-- serialises into settings.toml and from the omniwmctl command reference. macOS
+-- offers nothing else either -- Command+M is the only standard shortcut that
+-- minimizes a single window, Command+Option+M minimizes every window of the
+-- front application and Command+H hides the application as a whole.
+--
+-- A plain minimize leaves the layout wrong. OmniWM goes on reserving the
+-- window's slot and the columns beside it never grow, and it reports the window
+-- as `mode=tiling, isVisible=false, hiddenReason=null`: a minimize through the
+-- accessibility API is simply not something it observes. Neither `balance-sizes`
+-- nor `rescue-offscreen-windows` forces a reflow afterwards; both were measured
+-- and neither moved anything.
+--
+-- Floating the window first is what releases the slot, which is what takes it
+-- out of the niri strip. Measured on a column holding a Finder and a Terminal:
+-- the Terminal went from 643 to 1289 points tall the moment Finder floated, and
+-- stayed there once Finder was minimized.
+--
+-- The ordering between the two steps is the hs.task callback, which fires when
+-- omniwmctl exits, and nothing else. There is deliberately no wait in between:
+-- the minimize was first written behind a 0.15 second timer to let OmniWM
+-- reflow, and removing it changed nothing -- three runs on a five column strip
+-- each left the window minimized and the four survivors at 1268 points.
+--
+-- The window comes back from the Dock still floating, so returning it to the
+-- tiling layout is OmniWM's own toggle. Nothing can intercept a click on the
+-- Dock icon to do that automatically.
+local MINIMIZE_MOD = { "ctrl", "alt", "cmd" }
+
+hs.hotkey.bind(MINIMIZE_MOD, "m", function()
+	local window = hs.window.focusedWindow()
+	if not window then return end
+
+	if not OMNIWMCTL_PATH then
+		window:minimize()
+		return
+	end
+
+	-- Already-floating windows are left alone: toggling one of those would tile
+	-- it, which is the opposite of what this key is for. Alacritty is the case
+	-- that matters, since an appRule keeps it floating at all times.
+	hs.task.new(OMNIWMCTL_PATH, function(_, stdout)
+		if (stdout or ""):find('"floating"', 1, true) then
+			window:minimize()
+		else
+			hs.task.new(OMNIWMCTL_PATH, function()
+				window:minimize()
+			end, { "command", "toggle-focused-window-floating" }):start()
+		end
+	end, { "query", "windows", "--focused", "--fields", "mode", "--format", "json" }):start()
+end)
+
 -- OmniWM: hotkeys, listeners and everything that talks to omniwmctl.
 -- Self-contained, see omniwm.lua.
 --
