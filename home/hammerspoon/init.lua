@@ -297,6 +297,67 @@ end
 -- on x alone, with room to spare.
 local COLUMN_X_TOLERANCE = 60
 
+-- Give a display's only tiling column the whole width.
+--
+-- OmniWM leaves a lone column at whatever span it had -- half the screen,
+-- centred. `niri.singleWindowFit` is set to Fill in its own settings and does
+-- not do it, and neither does `expand-container-to-available-primary-span` nor
+-- `toggle-container-full-primary-span`: both answer `executed` and move nothing.
+-- Setting the span outright is the only thing that works, and it acts on the
+-- focused container, so the column has to be focused first and the previous
+-- focus put back afterwards.
+--
+-- Runs on every display, because a monitor can be left with one column by
+-- closing a window, minimizing one, restoring one from the Dock or sending one
+-- to the other screen, and only the minimize path knows which display it
+-- touched.
+local function fillLoneColumns()
+	if not OMNIWMCTL then return end
+
+	run(OMNIWMCTL, { "query", "windows", "--fields",
+		"id,mode,display,is-visible,is-focused,frame", "--format", "json" },
+		function(_, out)
+			local windows = payload(out, "windows")
+			if not windows then return end
+
+			local nameOf = function(value)
+				return type(value) == "table" and (value.name or value.id) or tostring(value)
+			end
+
+			local byDisplay, focusedId = {}, nil
+			for _, window in ipairs(windows) do
+				if window.isFocused then focusedId = window.id end
+				if window.mode == "tiling" and window.isVisible and window.frame and window.id then
+					local name = nameOf(window.display)
+					byDisplay[name] = byDisplay[name] or {}
+					table.insert(byDisplay[name], window)
+				end
+			end
+
+			for name, columns in pairs(byDisplay) do
+				if #columns == 1 then
+					local screenFrame
+					for _, screen in ipairs(hs.screen.allScreens()) do
+						if screen:name() == name then screenFrame = screen:fullFrame() end
+					end
+					-- Only when it is actually short. Without this the span would be
+					-- rewritten on every event, and each write pulls the focus across.
+					if screenFrame and columns[1].frame.width < screenFrame.w * 0.9 then
+						local target = columns[1].id
+						run(OMNIWMCTL, { "window", "focus", target }, function()
+							run(OMNIWMCTL, { "command", "set-container-primary-span", "100%" },
+								function()
+									if focusedId and focusedId ~= target then
+										run(OMNIWMCTL, { "window", "focus", focusedId })
+									end
+								end)
+						end)
+					end
+				end
+			end
+		end)
+end
+
 -- Flip the layout engine of the current workspace between niri and dwindle,
 -- leaving gaps, rules and mouse bindings alone. The lighter of the two switches;
 -- Control+Option+Command+W below swaps the whole configuration.
@@ -335,41 +396,6 @@ hs.hotkey.bind(WM_MOD, "m", function()
 	local window = hs.window.focusedWindow()
 	if not window then return end
 
-	local display = window:screen() and window:screen():name()
-
-	-- A column left alone on a display keeps the span it had -- half the screen,
-	-- centred -- instead of growing into the space the minimized window freed.
-	-- `singleWindowFit` is set to Fill in OmniWM's own settings and does not do
-	-- it; neither does `expand-container-to-available-primary-span` nor
-	-- `toggle-container-full-primary-span`, both of which reported `executed` and
-	-- moved nothing. Setting the span outright does work, and it needs the column
-	-- focused, which after a minimize it is not -- focus lands wherever macOS
-	-- sends it, often on another display entirely.
-	local function fillIfLastOnDisplay()
-		if not display then return end
-		run(OMNIWMCTL, { "query", "windows", "--fields",
-			"id,mode,display,is-visible,frame", "--format", "json" },
-			function(_, out)
-				local windows = payload(out, "windows")
-				if not windows then return end
-
-				local remaining = {}
-				for _, other in ipairs(windows) do
-					local name = type(other.display) == "table" and other.display.name
-						or tostring(other.display)
-					if other.mode == "tiling" and other.isVisible and other.id
-						and name == display then
-						remaining[#remaining + 1] = other
-					end
-				end
-				if #remaining ~= 1 then return end
-
-				run(OMNIWMCTL, { "window", "focus", remaining[1].id }, function()
-					run(OMNIWMCTL, { "command", "set-container-primary-span", "100%" })
-				end)
-			end)
-	end
-
 	local function minimize()
 		-- A beat after the float, so OmniWM has re-laid out the column before the
 		-- window disappears from under it.
@@ -377,7 +403,7 @@ hs.hotkey.bind(WM_MOD, "m", function()
 			window:minimize()
 			-- Long enough for the window to be gone from OmniWM's layout, so the
 			-- count below is of what is really left.
-			hs.timer.doAfter(0.5, fillIfLastOnDisplay)
+			hs.timer.doAfter(0.5, fillLoneColumns)
 		end)
 	end
 
@@ -391,7 +417,7 @@ hs.hotkey.bind(WM_MOD, "m", function()
 				-- but the display can still be left with a single column, and that
 				-- one has to be grown just the same.
 				window:minimize()
-				hs.timer.doAfter(0.5, fillIfLastOnDisplay)
+				hs.timer.doAfter(0.5, fillLoneColumns)
 			else
 				run(OMNIWMCTL, { "command", "toggle-focused-window-floating" }, minimize)
 			end
@@ -656,6 +682,22 @@ end)
 newWindowFilter:subscribe(hs.window.filter.windowUnminimized, function()
 	hs.timer.doAfter(1.2, expelFocusedIfStacked)
 end)
+
+-- Every way a display can be left holding a single column: a window closed,
+-- minimized, restored from the Dock, or sent to the other screen. OmniWM leaves
+-- that column at half the width whichever way it happened, and only the minimize
+-- hotkey used to notice.
+for _, event in ipairs({
+	hs.window.filter.windowDestroyed,
+	hs.window.filter.windowMinimized,
+	hs.window.filter.windowUnminimized,
+	hs.window.filter.windowNotVisible,
+}) do
+	newWindowFilter:subscribe(event, function()
+		-- After the re-tiling and unstacking above, so the column count is final.
+		hs.timer.doAfter(1.6, fillLoneColumns)
+	end)
+end
 
 -- Put the floating rules back whenever OmniWM starts.
 --
