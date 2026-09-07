@@ -10,7 +10,7 @@ mode = "dark"
 
 [borders]
 enabled = true
-width = 5.0
+width = 3.0
 
 [borders.color]
 alpha = 1.0
@@ -43,7 +43,7 @@ raiseOnMouseFocus = false
 
 [gaps]
 fullscreenUsesOuterGaps = false
-size = 16.0
+size = 7.0
 
 [gaps.outer]
 bottom = 0.0
@@ -150,7 +150,7 @@ useWorkspaceId = false
 [workspaceBar]
 backgroundOpacity = 0.1
 deduplicateAppIcons = false
-enabled = true
+enabled = false
 excludedBundleIDs = []
 height = 24.0
 hideEmptyWorkspaces = false
@@ -526,19 +526,19 @@ binding = "Unassigned"
 id = "switchWorkspace.previous"
 
 [[hotkeys]]
-binding = "Unassigned"
+binding = "Control+Option+Left Arrow"
 id = "focus.left"
 
 [[hotkeys]]
-binding = "Unassigned"
+binding = "Control+Option+Down Arrow"
 id = "focus.down"
 
 [[hotkeys]]
-binding = "Unassigned"
+binding = "Control+Option+Up Arrow"
 id = "focus.up"
 
 [[hotkeys]]
-binding = "Unassigned"
+binding = "Control+Option+Right Arrow"
 id = "focus.right"
 
 [[hotkeys]]
@@ -678,7 +678,7 @@ binding = "Control+Option+Command+X"
 id = "expelWindowFromColumn"
 
 [[hotkeys]]
-binding = "Control+Command+Tab"
+binding = "Control+Tab"
 id = "focusMonitorNext"
 
 [[hotkeys]]

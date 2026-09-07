@@ -98,10 +98,40 @@ SETTINGS="$HOME/.config/omniwm/settings.toml"
 # for a broken modifier. It was not: once the appRule was repaired,
 # Control+Option+Command+X registered and worked. Do not move them again on that
 # theory.
+#
+# focusMonitorNext is on plain Control+Tab, which is deliberate and is not free:
+# it is the standard "next tab" in browsers, editors and terminals, and a global
+# hotkey takes it from all of them. Chosen anyway, because moving the focus
+# between two monitors is worth more here than tab switching.
+#
+# The Unassigned entries are as much a setting as the others, and they are the
+# reason plain Option+arrow works again in every macOS text field. OmniWM ships
+# focus.* on Option+arrow and move.* on Option+Shift+arrow, which are exactly
+# the system shortcuts for moving and selecting by word and by paragraph:
+#
+#   Option+Left / Right          word left / right
+#   Option+Up / Down             start / end of paragraph
+#   Option+Shift+Left / Right    extend the selection by a word
+#   Option+Shift+Up / Down       extend the selection by a paragraph
+#
+# So focus.* moves to Control+Option+arrow, which nothing else here uses --
+# Control+Option+Shift+arrow is moveColumn and moveWindowToWorkspace,
+# Control+Option+Command+arrow is moveWindowToMonitor above -- and move.* is
+# pinned empty rather than merely left empty, so a settings reset or a future
+# OmniWM default cannot quietly take the text shortcuts back.
 OMNIWM_HOTKEYS=(
     "expelWindowFromColumn=Control+Option+Command+X"
     "moveWindowToMonitor.left=Control+Option+Command+Left Arrow"
     "moveWindowToMonitor.right=Control+Option+Command+Right Arrow"
+    "focusMonitorNext=Control+Tab"
+    "focus.left=Control+Option+Left Arrow"
+    "focus.right=Control+Option+Right Arrow"
+    "focus.up=Control+Option+Up Arrow"
+    "focus.down=Control+Option+Down Arrow"
+    "move.left=Unassigned"
+    "move.right=Unassigned"
+    "move.up=Unassigned"
+    "move.down=Unassigned"
 )
 
 ipc_up() {

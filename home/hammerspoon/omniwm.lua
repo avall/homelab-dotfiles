@@ -1,600 +1,240 @@
--- Everything this setup adds on top of OmniWM.
+-- Everything in this Hammerspoon configuration that talks to OmniWM.
 --
--- Split out of init.lua because it is a self-contained subsystem: it shares no
--- function and no variable with the Alacritty hotkeys that live there, in
--- either direction. If OmniWM ever goes, this file goes with it and init.lua
--- keeps working untouched.
+-- Loaded from init.lua with `require("omniwm")`. Kept apart from it because the
+-- rest of that file -- the application hotkeys, the Alacritty border, the quake
+-- terminal geometry -- would work unchanged with no window manager at all,
+-- while none of this would.
 --
--- Loaded from init.lua with `require("omniwm")`, which Hammerspoon resolves
--- inside ~/.hammerspoon -- a symlink to this directory.
+-- What is NOT here, deliberately, because OmniWM does it natively since its
+-- settings.toml started decoding again:
 --
--- Hammerspoon runs in both OmniWM modes, which is what makes it the right place
--- for the window actions: they behave identically whether the layout engine is
--- niri or dwindle.
+--   Control+Option+Command+X       expel a window from its column
+--   Control+Option+Command+Left    move the window to the left monitor
+--   Control+Option+Command+Right   move it to the right monitor
+--   Control+Tab                    focus the other monitor
+--   Control+Option+Command+L       toggle the workspace layout
 --
--- The modifier is Control+Option+Command throughout. Option alone is taken:
--- OmniWM already binds Option+1..9, Option+Shift+1..9 and Option+arrows, and the
--- application hotkeys at the bottom of this file take Option+D, A and I.
-local WM_MOD = { "ctrl", "alt", "cmd" }
+-- Those live in ~/.config/omniwm/settings.toml and are kept there by
+-- home/omniwm/omniwm-mode.sh, which a launchd agent runs every 120 seconds.
+-- Binding any of them here as well would put a second handler on the same key.
+--
+-- The floating rules and Terminal's Secure Keyboard Entry are handled by that
+-- same agent and by com.avall.terminal-secure-entry, not from here.
 
--- Resolved once, at load, rather than looked up per keypress. Both paths are
--- checked because OmniWM links its CLI into whichever Homebrew prefix the
--- machine uses -- /opt/homebrew on Apple Silicon, /usr/local on Intel.
-local OMNIWMCTL = nil
+-- Column width on ALT plus the keys the keycaps read as `-` and `=`.
+--
+-- The chord is not the same on both layouts, and that is the keyboard rather
+-- than the software. On US both characters have a key of their own: `-` on
+-- keycode 27, `=` on 24. A Spanish ISO number row is `1..0 ' ¡`, so only the
+-- minus has one, on keycode 44, and the equals sign is the shifted face of `0`,
+-- keycode 29 -- exactly the keys you press to type either character on that
+-- keyboard. A single chord cannot cover both because the unshifted `=` does not
+-- exist on an ISO Spanish board.
+--
+-- `hs.keycodes.map` is no help: asked for "=" under Spanish ISO it answers 24,
+-- the US position, which on that layout prints `¡`. So the mapping is by layout,
+-- and `hs.keycodes.inputSourceChanged` reapplies it -- plug in a US keyboard and
+-- the keys become plain Alt+- and Alt+= with no Shift, with nothing to change.
+local OMNIWMCTL_PATH = nil
 for _, candidate in ipairs({ "/opt/homebrew/bin/omniwmctl", "/usr/local/bin/omniwmctl" }) do
 	if hs.fs.attributes(candidate) then
-		OMNIWMCTL = candidate
+		OMNIWMCTL_PATH = candidate
 		break
 	end
 end
 
--- Run a command without blocking, and without a login shell.
+-- Sends an absolute share rather than a relative step, and that is not a
+-- refinement: `set-container-primary-span +10%` simply does not move some
+-- windows. Measured on a Terminal.app window, three relative steps left it at
+-- 748 points throughout, while `70%` took it to 1044 and `60%` to 900 on the
+-- same window seconds later. Reading the current share and sending the target
+-- works everywhere.
 --
--- `hs.execute(cmd, true)` was the obvious way to write this and it is the wrong
--- one: the second argument runs the command through an interactive login shell,
--- which sources the entire zsh configuration -- plugins, starship, atuin,
--- zsh-abbr -- before it gets anywhere near the binary. Measured on this machine:
--- 803 ms that way against 30 ms for the binary called directly. On a hotkey that
--- is the difference between instant and visibly late.
---
--- hs.task also returns immediately instead of holding up Hammerspoon's event
--- loop for the round trip, so the keypress never feels stuck.
-local function run(path, args, callback)
-	if not path then
-		hs.alert.show("omniwmctl not found")
-		return
+-- The share is read against `frameWidth - 2 * gap`, not the raw display width:
+-- a lone column at 100% measured 2540 on a 2560-point display with a 9-point
+-- gap, and two at 50% measured 1268 each, and only that denominator turns both
+-- back into the percentages that produced them.
+local function resizeSpan(delta)
+	if not OMNIWMCTL_PATH then return end
+
+	local function run(args, callback)
+		local out = {}
+		hs.task.new(OMNIWMCTL_PATH, function(_, stdout)
+			if callback then callback(stdout) end
+		end, args):start()
+		return out
 	end
-	hs.task.new(path, callback, args):start()
-end
 
--- Decodes an omniwmctl --format json reply, or nil if it was not one.
-local function payload(stdout, kind)
-	local ok, decoded = pcall(hs.json.decode, stdout or "")
-	if not ok or type(decoded) ~= "table" or not decoded.ok then return nil end
-	local result = decoded.result
-	if type(result) ~= "table" or type(result.payload) ~= "table" then return nil end
-	return result.payload[kind]
-end
+	run({ "query", "displays", "--fields", "name,frame,inner-gap", "--format", "json" },
+		function(displaysOut)
+			local okD, displays = pcall(hs.json.decode, displaysOut or "")
+			if not okD or not displays or not displays.ok then return end
 
--- Columns are identified by where their windows start, because omniwmctl reports
--- no column of its own. Two windows in one column share an x while their widths
--- differ by a few points -- 1252 against 1256, measured -- so the comparison is
--- on x alone, with room to spare.
-local COLUMN_X_TOLERANCE = 60
+			run({ "query", "windows", "--focused", "--fields", "mode,display,frame",
+				"--format", "json" }, function(windowsOut)
+				local okW, decoded = pcall(hs.json.decode, windowsOut or "")
+				if not okW or not decoded or not decoded.ok then return end
+				local window = decoded.result.payload.windows[1]
+				if not window or window.mode ~= "tiling" or not window.frame then return end
 
--- Give a display's only tiling column the whole width.
---
--- OmniWM leaves a lone column at whatever span it had -- half the screen,
--- centred. `niri.singleWindowFit` is set to Fill in its own settings and does
--- not do it, and neither does `expand-container-to-available-primary-span` nor
--- `toggle-container-full-primary-span`: both answer `executed` and move nothing.
--- Setting the span outright is the only thing that works, and it acts on the
--- focused container, so the column has to be focused first and the previous
--- focus put back afterwards.
---
--- Runs on every display, because a monitor can be left with one column by
--- closing a window, minimizing one, restoring one from the Dock or sending one
--- to the other screen, and only the minimize path knows which display it
--- touched.
-local function fillLoneColumns()
-	if not OMNIWMCTL then return end
-
-	run(OMNIWMCTL, { "query", "windows", "--fields",
-		"id,mode,display,is-visible,is-focused,frame", "--format", "json" },
-		function(_, out)
-			local windows = payload(out, "windows")
-			if not windows then return end
-
-			local nameOf = function(value)
-				return type(value) == "table" and (value.name or value.id) or tostring(value)
-			end
-
-			local byDisplay, focusedId = {}, nil
-			for _, window in ipairs(windows) do
-				if window.isFocused then focusedId = window.id end
-				if window.mode == "tiling" and window.isVisible and window.frame and window.id then
-					local name = nameOf(window.display)
-					byDisplay[name] = byDisplay[name] or {}
-					table.insert(byDisplay[name], window)
-				end
-			end
-
-			for name, columns in pairs(byDisplay) do
-				if #columns == 1 then
-					local screenFrame
-					for _, screen in ipairs(hs.screen.allScreens()) do
-						if screen:name() == name then screenFrame = screen:fullFrame() end
-					end
-					-- Only when it is actually short. Without this the span would be
-					-- rewritten on every event, and each write pulls the focus across.
-					if screenFrame and columns[1].frame.width < screenFrame.w * 0.9 then
-						local target = columns[1].id
-						run(OMNIWMCTL, { "window", "focus", target }, function()
-							run(OMNIWMCTL, { "command", "set-container-primary-span", "100%" },
-								function()
-									if focusedId and focusedId ~= target then
-										run(OMNIWMCTL, { "window", "focus", focusedId })
-									end
-								end)
-						end)
+				local name = type(window.display) == "table" and window.display.name
+					or tostring(window.display)
+				local frameWidth, gap
+				for _, entry in ipairs(displays.result.payload.displays) do
+					if entry.name == name and entry.frame then
+						frameWidth, gap = entry.frame.width, entry.innerGap or 0
 					end
 				end
-			end
+				if not frameWidth then return end
+
+				local percent = window.frame.width / (frameWidth - 2 * gap) * 100
+				-- Snapped to the step first, so a column left on an odd width by
+				-- something else lands back on the grid rather than carrying the
+				-- oddness forward.
+				local target = math.floor(percent / 10 + 0.5) * 10 + delta
+				target = math.max(10, math.min(100, target))
+				run({ "command", "set-container-primary-span", target .. "%" })
+			end)
 		end)
 end
 
--- Flip the layout engine of the current workspace between niri and dwindle,
--- leaving gaps, rules and mouse bindings alone. The lighter of the two switches;
--- Control+Option+Command+W below swaps the whole configuration.
-hs.hotkey.bind(WM_MOD, "l", function()
-	run(OMNIWMCTL, { "command", "toggle-workspace-layout" })
-end)
+local spanHotkeys = {}
 
--- Full mode swap: rewrites ~/.config/omniwm/settings.toml from one of the two
--- mode files.
-hs.hotkey.bind(WM_MOD, "w", function()
-	run("/bin/bash", { os.getenv("HOME") .. "/.config/omniwm/omniwm-mode.sh", "toggle" },
-		function(code, stdout)
-			hs.alert.show(code == 0 and (stdout or ""):gsub("%s+$", "") or "OmniWM mode switch failed")
+local function bindSpanHotkeys()
+	for _, hotkey in ipairs(spanHotkeys) do hotkey:delete() end
+	spanHotkeys = {}
+	if not OMNIWMCTL_PATH then return end
+
+	local spanish = hs.keycodes.currentSourceID():find("Spanish", 1, true) ~= nil
+
+	-- { modifiers, keycode, amount }
+	local bindings = spanish
+		and {
+			{ { "alt" }, 44, -10 },              -- the `-` key
+			{ { "alt", "shift" }, 29, 10 },      -- `=` is Shift+0
+		}
+		or {
+			{ { "alt" }, 27, -10 },              -- the `-` key
+			{ { "alt" }, 24, 10 },               -- the `=` key
+		}
+
+	for _, binding in ipairs(bindings) do
+		local mods, code, delta = binding[1], binding[2], binding[3]
+		spanHotkeys[#spanHotkeys + 1] = hs.hotkey.bind(mods, code, function()
+			resizeSpan(delta)
 		end)
-end)
+	end
+end
 
--- Minimize, in two steps, and the first one is not optional.
+bindSpanHotkeys()
+hs.keycodes.inputSourceChanged(bindSpanHotkeys)
+
+-- Minimize the focused window on Control+Option+Command+M, in two steps, and the
+-- first one is not optional.
 --
 -- OmniWM has no minimize of its own: it is absent from every hotkey id the app
--- serialises into settings.toml and from the omniwmctl command reference. The
--- obvious fallback, a plain macOS minimize, leaves the layout wrong -- OmniWM
--- goes on reserving the window's slot and the ones beside it never grow. It
--- reports the window as `mode=tiling, isVisible=false, hiddenReason=null`: a
--- minimize through the accessibility API is simply not something it observes.
--- Neither `balance-sizes` nor `rescue-offscreen-windows` forces a reflow
--- afterwards; both were measured and neither moved anything.
+-- serialises into settings.toml and from the omniwmctl command reference. macOS
+-- offers nothing else either -- Command+M is the only standard shortcut that
+-- minimizes a single window, Command+Option+M minimizes every window of the
+-- front application and Command+H hides the application as a whole.
 --
--- Floating the window first is what releases the slot. Measured on a column
--- holding a Finder and a Terminal: the Terminal went from 643 to 1289 points
--- tall the moment Finder floated, and stayed there once Finder was minimized.
+-- A plain minimize leaves the layout wrong. OmniWM goes on reserving the
+-- window's slot and the columns beside it never grow, and it reports the window
+-- as `mode=tiling, isVisible=false, hiddenReason=null`: a minimize through the
+-- accessibility API is simply not something it observes. Neither `balance-sizes`
+-- nor `rescue-offscreen-windows` forces a reflow afterwards; both were measured
+-- and neither moved anything.
+--
+-- Floating the window first is what releases the slot, which is what takes it
+-- out of the niri strip. Measured on a column holding a Finder and a Terminal:
+-- the Terminal went from 643 to 1289 points tall the moment Finder floated, and
+-- stayed there once Finder was minimized.
+--
+-- The ordering between the two steps is the hs.task callback, which fires when
+-- omniwmctl exits, and nothing else. There is deliberately no wait in between:
+-- the minimize was first written behind a 0.15 second timer to let OmniWM
+-- reflow, and removing it changed nothing -- three runs on a five column strip
+-- each left the window minimized and the four survivors at 1268 points.
 --
 -- The window comes back from the Dock still floating, so returning it to the
--- tiling layout is Control+Option+Command+F. Nothing can intercept a click on
--- the Dock icon to do that automatically.
-hs.hotkey.bind(WM_MOD, "m", function()
+-- tiling layout is OmniWM's own toggle. Nothing can intercept a click on the
+-- Dock icon to do that automatically.
+local MINIMIZE_MOD = { "ctrl", "alt", "cmd" }
+
+hs.hotkey.bind(MINIMIZE_MOD, "m", function()
 	local window = hs.window.focusedWindow()
 	if not window then return end
 
-	local function minimize()
-		-- A beat after the float, so OmniWM has re-laid out the column before the
-		-- window disappears from under it.
-		hs.timer.doAfter(0.15, function()
-			window:minimize()
-			-- Long enough for the window to be gone from OmniWM's layout, so the
-			-- count below is of what is really left.
-			hs.timer.doAfter(0.5, fillLoneColumns)
-		end)
+	if not OMNIWMCTL_PATH then
+		window:minimize()
+		return
 	end
 
 	-- Already-floating windows are left alone: toggling one of those would tile
 	-- it, which is the opposite of what this key is for. Alacritty is the case
 	-- that matters, since an appRule keeps it floating at all times.
-	run(OMNIWMCTL, { "query", "windows", "--focused", "--fields", "mode", "--format", "json" },
-		function(_, stdout)
-			if (stdout or ""):find('"floating"', 1, true) then
-				-- Already outside the layout, so nothing has to be freed first --
-				-- but the display can still be left with a single column, and that
-				-- one has to be grown just the same.
+	hs.task.new(OMNIWMCTL_PATH, function(_, stdout)
+		if (stdout or ""):find('"floating"', 1, true) then
+			window:minimize()
+		else
+			hs.task.new(OMNIWMCTL_PATH, function()
 				window:minimize()
-				hs.timer.doAfter(0.5, fillLoneColumns)
-			else
-				run(OMNIWMCTL, { "command", "toggle-focused-window-floating" }, minimize)
-			end
-		end)
-end)
-
--- Genuinely circular column navigation on Option+Left and Option+Right.
---
--- OmniWM's own `niri.infiniteLoop` wraps the focus but not the viewport. With
--- five columns it goes, pressing right:
---
---   chrome+terminal1 -> terminal1+finder -> finder+sublime ->
---   sublime+terminal2 -> chrome+terminal1
---
--- and the pair that closes the circle, terminal2+chrome, never appears. It
--- cannot: in a strip drawn as a bounded row those two columns sit at opposite
--- ends, so there is no scroll position that shows them side by side.
---
--- What does produce it is rotating the strip instead of scrolling the viewport.
--- At the right-hand edge, moving the first column to the end leaves the former
--- last column beside it, which is exactly the missing pair -- verified:
--- `sublime+terminal2` became `terminal2+chrome`. Repeated, this rotates the
--- strip endlessly while keeping every column's relative order, which is what a
--- circular strip is.
---
--- The cost is real and worth stating: rotating changes the actual order of the
--- columns, not just what is on screen, so absolute column keys (Option+1..9,
--- focusColumn.N) point at different windows after a lap. A circular strip has no
--- stable first column, so this is inherent rather than a flaw in the approach.
---
--- These two keys must be cleared in OmniWM's own settings (focus.left and
--- focus.right, both Unassigned) or both bindings fire and the focus jumps two
--- columns at a time.
-
--- Even out the columns sharing the monitor, which is how you get back to two
--- windows at half the width each.
---
--- A complementary resize was built here first: widen the focused column, narrow
--- its neighbour by the same amount, both shares always adding to 100. It was
--- removed because it cannot be made to hold. Giving two columns complementary
--- widths does not pin the viewport to those two -- OmniWM re-scrolls the strip
--- and a third column comes into view instead. Measured from a clean 50/50 pair,
--- one press left the focused column at 60% beside a window that had not been on
--- screen at all, while the one it had just resized was gone.
---
--- The strip also drifts into states there is no way back from, because the
--- columns nobody is resizing keep whatever width they had -- 1522, 1256 and 1252
--- points against a 2560-point display -- and tile nothing when they scroll in.
--- One column ends up filling the monitor with no way to bring a second back.
---
--- `balance-sizes` is OmniWM's own answer and it works: on a strip with one
--- column at 1268 and four stacked off-screen it put two back at 1267 and 1268,
--- both fully visible. OmniWM's Option+= and Option+- still resize a single
--- column; this is the way back to an even split.
-hs.hotkey.bind(WM_MOD, "b", function()
-	run(OMNIWMCTL, { "command", "balance-sizes" })
-end)
-
--- Widen and narrow the focused column, on the keys OmniWM lists for the job.
---
--- Bound here because OmniWM's own binding for them does not exist: settings.toml
--- records `setContainerPrimarySpan.increase10Percent` on Option+= and
--- `.decrease10Percent` on Option+-, but that file is an export OmniWM never
--- reads back, so nothing registers them. The proof is what reaches the terminal:
--- pressing them types the characters Option+= and Option+- produce on this
--- layout, the not-equal sign and an en dash. A handler owning those keys would
--- have swallowed the event long before it became text.
---
--- This resizes the focused column only. The neighbour keeps its own width and
--- loses whatever no longer fits, which on screen looks like the two sharing the
--- space; a version that really resized both was built and removed, see the note
--- on Control+Option+Command+B above.
--- Column width lives in init.lua instead, bound there so it survives with
--- omniwm.lua unloaded and rebound on every keyboard layout change.
-
--- Move the focused window out of a shared column into one of its own.
---
--- The listener below does this by itself for windows as they appear, but only
--- for those: a column stacked deliberately afterwards, with
--- `consume-window-into-column`, stays stacked. This is the manual way out.
-hs.hotkey.bind(WM_MOD, "e", function()
-	run(OMNIWMCTL, { "command", "expel-window-from-column" })
-end)
-
--- Return a window to the tiling layout, or take it out of it.
---
--- Bound here rather than in OmniWM, although OmniWM has the action and a slot
--- for a hotkey on it: bindings written into settings.toml are never registered,
--- the same way the appRules in that file never reach App Rules. OmniWM persists
--- the file without reading it back, so the only bindings that exist are the ones
--- set in its own interface -- and the ones set here.
---
--- Its job is the return leg of Control+Option+Command+M. A window restored from
--- the Dock comes back floating, and this puts it back in the column.
-hs.hotkey.bind(WM_MOD, "f", function()
-	run(OMNIWMCTL, { "command", "toggle-focused-window-floating" })
-end)
-
--- Put a window back in the tiling layout by itself when it returns from the
--- Dock, so the manual Control+Option+Command+F above is only ever needed as a
--- fallback.
---
--- The minimize hotkey floats a window before minimizing it, because that is the
--- only way OmniWM gives up its slot. Restoring it from the Dock therefore brings
--- back a floating window, and nothing can intercept that click. Watching for the
--- window to come back is the next best thing.
---
--- Three conditions, all checked against OmniWM rather than assumed:
---
---   * the workspace is on the niri layout,
---   * no appRule floats this application -- Alacritty is floating on purpose and
---     must stay that way, and `layoutReason` cannot be used to tell the two
---     apart: it reads "standard" for a rule-floated window and a hand-floated
---     one alike, as does `manualOverride`,
---   * the window really did come back floating, since toggling a tiled one would
---     float it and do the exact opposite of what this is for.
---
--- Each check is a separate omniwmctl call, chained through callbacks so the
--- event handler never blocks. This runs on a window returning from the Dock,
--- which is rare enough that three round trips cost nothing.
-
--- True when one of OmniWM's rules floats this application. Rules match either on
--- the exact bundle identifier or on a substring of the application name, which is
--- how the Karabiner-Elements rule is written.
-local function ruleFloats(rules, bundleID, appName)
-	for _, rule in ipairs(rules or {}) do
-		if rule.layout == "float" then
-			if bundleID and rule.bundleId == bundleID then return true end
-			if appName and rule.appNameSubstring
-				and appName:find(rule.appNameSubstring, 1, true) then
-				return true
-			end
+			end, { "command", "toggle-focused-window-floating" }):start()
 		end
-	end
-	return false
-end
+	end, { "query", "windows", "--focused", "--fields", "mode", "--format", "json" }):start()
+end)
+
+-- Put a window back in the scrolling strip when it returns from the Dock.
+--
+-- The minimize above floats the window to free its slot, and nothing undoes that
+-- on the way back: it reappears floating, outside the layout, which is not what
+-- minimizing a tiled window is supposed to mean.
+--
+-- `omniwmctl rule apply --window <id>` looked like the tidy way to do it and is
+-- not: measured on a floated Slack window, it printed the rule table and left
+-- `manualOverride=force-float` exactly as it was. Toggling is the only way back,
+-- and the toggle acts on the focused window, so the window has to be focused
+-- first.
+--
+-- Only windows this key floated are touched. OmniWM reports ours as
+-- `manualOverride=force-float` and the ones an appRule floats -- Alacritty,
+-- Stickies, Screen Sharing -- as `manualOverride=None`, so tiling those on the
+-- way back, which would be wrong, cannot happen by accident.
+--
+-- The filter is `hs.window.filter.new(true)` rather than the default one. That
+-- is not a stylistic choice: subscribing windowUnminimized on
+-- hs.window.filter.default was measured firing zero times. Both it and the
+-- subscription are held in upvalues, or they are collected and the callback
+-- never runs again.
+local unminimizeFilter = hs.window.filter.new(true)
 
 local function retileOnUnminimize(window)
-	if not window or not OMNIWMCTL then return end
-	local app = window:application()
-	if not app then return end
-	local bundleID, appName = app:bundleID(), app:name()
+	if not OMNIWMCTL_PATH or not window then return end
+	local windowID = window:id()
+	if not windowID then return end
 
-	local function toggleBackToTiling()
-		run(OMNIWMCTL, { "query", "windows", "--focused", "--fields", "mode", "--format", "json" },
-			function(_, out)
-				local windows = payload(out, "windows")
-				-- Only when OmniWM agrees the window in front is this one and that
-				-- it is floating. Restoring from the Dock can leave focus
-				-- elsewhere, and toggling then would move the wrong window.
-				local focused = windows and windows[1]
-				if not focused or focused.mode ~= "floating" then return end
-				if focused.app and focused.app.bundleId ~= bundleID then return end
-				run(OMNIWMCTL, { "command", "toggle-focused-window-floating" })
-			end)
-	end
+	hs.task.new(OMNIWMCTL_PATH, function(_, stdout)
+		local ok, decoded = pcall(hs.json.decode, stdout or "")
+		if not ok or type(decoded) ~= "table" or not decoded.ok then return end
+		local windows = decoded.result and decoded.result.payload
+			and decoded.result.payload.windows
+		if not windows then return end
 
-	run(OMNIWMCTL, { "query", "rules", "--format", "json" }, function(_, rulesOut)
-		if ruleFloats(payload(rulesOut, "rules"), bundleID, appName) then return end
-		run(OMNIWMCTL, { "query", "workspaces", "--focused", "--fields", "layout", "--format", "json" },
-			function(_, wsOut)
-				local workspaces = payload(wsOut, "workspaces")
-				if not workspaces or not workspaces[1] or workspaces[1].layout ~= "niri" then
-					return
+		for _, entry in ipairs(windows) do
+			if entry.windowId == windowID then
+				if entry.mode == "floating" and entry.manualOverride == "force-float" then
+					-- Focus first, toggle second, ordered by the task callback
+					-- rather than by a wait.
+					hs.task.new(OMNIWMCTL_PATH, function()
+						hs.task.new(OMNIWMCTL_PATH, nil,
+							{ "command", "toggle-focused-window-floating" }):start()
+					end, { "window", "focus", entry.id }):start()
 				end
-				-- A beat for the window to finish being restored and for focus to
-				-- settle before asking OmniWM what is in front.
-				hs.timer.doAfter(0.25, toggleBackToTiling)
-			end)
-	end)
-end
-
--- A filter of its own, and specifically not hs.window.filter.default. The
--- default one only tracks visible windows, so a minimized window falls outside
--- its scope entirely and it never reports the window coming back --
--- windowUnminimized subscribed there fires zero times, measured. A filter built
--- with `new(true)` allows every window, which is what it takes to observe a
--- transition that starts from an invisible state.
-local unminimizeFilter = hs.window.filter.new(true)
-unminimizeFilter:subscribe(hs.window.filter.windowUnminimized, function(window)
-	retileOnUnminimize(window)
-end)
-
--- Keep one window per column: never let two of them split a column's height.
---
--- niri columns hold a stack, and a new window often lands in the one already in
--- front instead of opening beside it. There is no setting for this -- the whole
--- [niri] section is visibleContainerCount, infiniteLoop, centerFocusedColumn,
--- alwaysCenterSingleColumn, singleWindowFit, containerPrimarySpanPresets and
--- defaultContainerPrimarySpan, and none of them bounds how many windows a column
--- may hold. `expel-window-from-column` does move the focused window out into its
--- own column, so the stack is undone here as soon as it forms.
---
--- Only in the niri layout. Splitting a pane in two is what the dwindle engine is
--- for, and undoing it there would fight the layout rather than fix it.
---
-local function expelFocusedIfStacked()
-	if not OMNIWMCTL then return end
-
-	run(OMNIWMCTL, { "query", "workspaces", "--focused", "--fields", "layout", "--format", "json" },
-		function(_, wsOut)
-			local workspaces = payload(wsOut, "workspaces")
-			if not workspaces or not workspaces[1] or workspaces[1].layout ~= "niri" then
 				return
 			end
-
-			run(OMNIWMCTL, { "query", "windows", "--fields",
-				"app,mode,display,is-visible,is-focused,frame", "--format", "json" },
-				function(_, winOut)
-					local windows = payload(winOut, "windows")
-					if not windows then return end
-
-					local focused
-					for _, window in ipairs(windows) do
-						if window.isFocused then focused = window end
-					end
-					if not focused or focused.mode ~= "tiling" or not focused.frame then return end
-
-					local displayOf = function(window)
-						local display = window.display
-						return type(display) == "table" and display.name or tostring(display)
-					end
-
-					local sharing = 0
-					for _, window in ipairs(windows) do
-						if window.mode == "tiling" and window.isVisible and window.frame
-							and displayOf(window) == displayOf(focused)
-							and math.abs(window.frame.x - focused.frame.x) < COLUMN_X_TOLERANCE then
-							sharing = sharing + 1
-						end
-					end
-
-					-- The focused window counts itself, so anything above one means
-					-- it is sharing its column with something.
-					if sharing > 1 then
-						run(OMNIWMCTL, { "command", "expel-window-from-column" })
-					end
-				end)
-		end)
-end
-
--- A window is not in the layout the instant it appears, so the check waits for
--- OmniWM to place it before asking where it landed.
-local newWindowFilter = hs.window.filter.new(true)
-newWindowFilter:subscribe(hs.window.filter.windowCreated, function()
-	hs.timer.doAfter(0.4, expelFocusedIfStacked)
-end)
-
--- And on the way back from the Dock, which is a second way a column ends up
--- holding two windows: a window restored into a workspace does not necessarily
--- return to a column of its own. Seen with a Sublime Text and a Terminal sharing
--- one, 2540 by 643 each, half the height apiece.
---
--- Subscribed on this filter rather than the one above it because
--- expelFocusedIfStacked is declared between the two, and a closure made earlier
--- would not see it. The later delay leaves room for the re-tiling that the same
--- event triggers to finish first.
-newWindowFilter:subscribe(hs.window.filter.windowUnminimized, function()
-	hs.timer.doAfter(1.2, expelFocusedIfStacked)
-end)
-
--- Every way a display can be left holding a single column: a window closed,
--- minimized, restored from the Dock, or sent to the other screen. OmniWM leaves
--- that column at half the width whichever way it happened, and only the minimize
--- hotkey used to notice.
-for _, event in ipairs({
-	hs.window.filter.windowDestroyed,
-	hs.window.filter.windowMinimized,
-	hs.window.filter.windowUnminimized,
-	hs.window.filter.windowNotVisible,
-}) do
-	newWindowFilter:subscribe(event, function()
-		-- After the re-tiling and unstacking above, so the column count is final.
-		hs.timer.doAfter(1.6, fillLoneColumns)
-	end)
-end
-
--- Put the floating rules back whenever OmniWM starts.
---
--- They do not survive a restart. OmniWM keeps its real configuration in an
--- internal store, and rules added through its interface or with `omniwmctl rule
--- add` are gone the next time it launches -- measured: 21 rules before a
--- restart, 13 after, none of the eight floating ones left. Writing them into
--- settings.toml does not help either; that file is an export OmniWM never reads
--- back.
---
--- So the rules are reapplied from here instead, by the one process that is
--- already running whenever OmniWM is. The switcher's `rules` subcommand only
--- adds what is missing, so running it on every launch costs nothing.
---
--- IPC is the one thing this cannot fix: it also resets on restart and there is
--- no way to turn it on except the "Enable IPC" item in OmniWM's menu bar icon.
--- Until that is clicked the sync below reports it and does nothing.
-local omniwmWatcher = hs.application.watcher.new(function(name, event)
-	if name ~= "OmniWM" or event ~= hs.application.watcher.launched then return end
-	-- Several seconds, not one: OmniWM has to finish starting, and IPC only
-	-- comes up once its socket is created.
-	hs.timer.doAfter(6, function()
-		run("/bin/bash", { os.getenv("HOME") .. "/.config/omniwm/omniwm-mode.sh", "rules" },
-			function(_, stdout)
-				local message = (stdout or ""):gsub("%s+$", "")
-				if message ~= "" then hs.alert.show(message) end
-			end)
-	end)
-end)
-omniwmWatcher:start()
-
--- Send the focused window to the other display. omniwmctl only moves in a
--- direction, so with two monitors the direction has to be worked out from where
--- they actually sit -- a fixed "right" does nothing once the window is already
--- on the right-hand screen. The axis with the larger separation decides, so a
--- stacked arrangement works the same as a side-by-side one.
-hs.hotkey.bind(WM_MOD, "o", function()
-	local window = hs.window.focusedWindow()
-	if not window then return end
-
-	local here = window:screen()
-	local there = nil
-	for _, screen in ipairs(hs.screen.allScreens()) do
-		if screen:id() ~= here:id() then
-			there = screen
-			break
 		end
-	end
-	if not there then
-		hs.alert.show("Only one display")
-		return
-	end
-
-	local a, b = here:frame(), there:frame()
-	local dx = (b.x + b.w / 2) - (a.x + a.w / 2)
-	local dy = (b.y + b.h / 2) - (a.y + a.h / 2)
-
-	local direction
-	if math.abs(dx) >= math.abs(dy) then
-		direction = dx > 0 and "right" or "left"
-	else
-		direction = dy > 0 and "down" or "up"
-	end
-
-	run(OMNIWMCTL, { "command", "move-to-monitor", direction })
-end)
--- ---------------------------------------------------------------------------
-
--- Keep Terminal.app's Secure Keyboard Entry switched off.
---
--- While it is on, Terminal takes secure input for as long as it is frontmost and
--- nothing else on the system sees the keyboard: not event taps, not registered
--- hotkeys. Every binding in this file dies inside Terminal and nowhere else,
--- which reads as Terminal having stolen those keys when it has really taken the
--- whole keyboard. `ioreg` names the culprit -- kCGSSessionSecureInputPID points
--- at Terminal's pid.
---
--- osx/config/terminal/apply-terminal-theme.sh turns it off at provisioning time,
--- and that is not enough: Terminal switches it back on by itself. Caught in the
--- act more than once -- the preference read back as 1, the menu item was ticked
--- again, and the preferences file had been rewritten two minutes earlier. What
--- triggers it was never found, so it is undone here whenever it reappears.
---
--- Watching rather than setting the preference, because Terminal writes its whole
--- preferences file from memory and puts its own value back over anything
--- written behind it. The menu item is the only thing it listens to.
---
--- Checking through accessibility rather than by shelling out to `defaults` or
--- `ioreg`: this runs on a timer for as long as Terminal is up, and it is a local
--- call rather than a process launched every time.
-local SECURE_ENTRY_APPLESCRIPT = [[
-tell application "System Events"
-    tell process "Terminal"
-        set entry to menu item "Secure Keyboard Entry" of menu 1 of menu bar item "Terminal" of menu bar 1
-        if (value of attribute "AXMenuItemMarkChar" of entry as text) is not "missing value" then
-            click menu bar item "Terminal" of menu bar 1
-            delay 0.4
-            click entry
-        end if
-    end tell
-end tell
-]]
-
-local function untickSecureKeyboardEntry()
-	if not hs.application.get("Terminal") then return end
-	-- osascript as a separate process, not hs.osascript. That runs on
-	-- Hammerspoon's main thread and blocks it for the whole round trip -- with the
-	-- delay this script needs, long enough for `hs -c` to give up waiting. On a
-	-- timer it would stall the event loop every time it fired.
-	hs.task.new("/usr/bin/osascript", nil, { "-e", SECURE_ENTRY_APPLESCRIPT }):start()
+	end, { "query", "windows", "--fields", "id,window-id,mode,manual-override",
+		"--format", "json" }):start()
 end
 
--- On every activation, so the keys are alive by the time a window is used, and
--- on a slow timer for the case where it comes back while Terminal already has
--- focus.
-local secureEntryWatcher = hs.application.watcher.new(function(name, event)
-	if name == "Terminal" and (event == hs.application.watcher.activated
-		or event == hs.application.watcher.launched) then
-		hs.timer.doAfter(0.5, untickSecureKeyboardEntry)
-	end
-end)
-secureEntryWatcher:start()
--- Held in a variable on purpose. Hammerspoon collects a timer nothing keeps a
--- reference to, and this one stopped firing within seconds of being created
--- when it was left anonymous.
-secureEntryTimer = hs.timer.doEvery(20, untickSecureKeyboardEntry)
-
--- And once at load, because the launch watcher above cannot catch a login.
--- OmniWM and Hammerspoon both start then, OmniWM first -- measured a second
--- apart, 00:16:12 against 00:16:13 -- so its `launched` event fires before this
--- file has run and nothing is listening for it. Without this the floating rules
--- stay lost after every reboot: 13 rules and none of the eight floating ones,
--- which is why Alacritty came back tiled and ALT+D stopped placing it.
-hs.timer.doAfter(8, function()
-	if hs.application.get("OmniWM") then
-		run("/bin/bash", { os.getenv("HOME") .. "/.config/omniwm/omniwm-mode.sh", "rules" })
-	end
-end)
-
+unminimizeFilter:subscribe(hs.window.filter.windowUnminimized, retileOnUnminimize)
