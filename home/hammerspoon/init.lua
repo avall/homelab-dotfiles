@@ -390,6 +390,61 @@ hs.hotkey.bind(MINIMIZE_MOD, "m", function()
 	end, { "query", "windows", "--focused", "--fields", "mode", "--format", "json" }):start()
 end)
 
+-- Put a window back in the scrolling strip when it returns from the Dock.
+--
+-- The minimize above floats the window to free its slot, and nothing undoes that
+-- on the way back: it reappears floating, outside the layout, which is not what
+-- minimizing a tiled window is supposed to mean.
+--
+-- `omniwmctl rule apply --window <id>` looked like the tidy way to do it and is
+-- not: measured on a floated Slack window, it printed the rule table and left
+-- `manualOverride=force-float` exactly as it was. Toggling is the only way back,
+-- and the toggle acts on the focused window, so the window has to be focused
+-- first.
+--
+-- Only windows this key floated are touched. OmniWM reports ours as
+-- `manualOverride=force-float` and the ones an appRule floats -- Alacritty,
+-- Stickies, Screen Sharing -- as `manualOverride=None`, so tiling those on the
+-- way back, which would be wrong, cannot happen by accident.
+--
+-- The filter is `hs.window.filter.new(true)` rather than the default one. That
+-- is not a stylistic choice: subscribing windowUnminimized on
+-- hs.window.filter.default was measured firing zero times. Both it and the
+-- subscription are held in upvalues, or they are collected and the callback
+-- never runs again.
+local unminimizeFilter = hs.window.filter.new(true)
+
+local function retileOnUnminimize(window)
+	if not OMNIWMCTL_PATH or not window then return end
+	local windowID = window:id()
+	if not windowID then return end
+
+	hs.task.new(OMNIWMCTL_PATH, function(_, stdout)
+		local ok, decoded = pcall(hs.json.decode, stdout or "")
+		if not ok or type(decoded) ~= "table" or not decoded.ok then return end
+		local windows = decoded.result and decoded.result.payload
+			and decoded.result.payload.windows
+		if not windows then return end
+
+		for _, entry in ipairs(windows) do
+			if entry.windowId == windowID then
+				if entry.mode == "floating" and entry.manualOverride == "force-float" then
+					-- Focus first, toggle second, ordered by the task callback
+					-- rather than by a wait.
+					hs.task.new(OMNIWMCTL_PATH, function()
+						hs.task.new(OMNIWMCTL_PATH, nil,
+							{ "command", "toggle-focused-window-floating" }):start()
+					end, { "window", "focus", entry.id }):start()
+				end
+				return
+			end
+		end
+	end, { "query", "windows", "--fields", "id,window-id,mode,manual-override",
+		"--format", "json" }):start()
+end
+
+unminimizeFilter:subscribe(hs.window.filter.windowUnminimized, retileOnUnminimize)
+
 -- OmniWM: hotkeys, listeners and everything that talks to omniwmctl.
 -- Self-contained, see omniwm.lua.
 --

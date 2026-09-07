@@ -44,7 +44,7 @@ raiseOnMouseFocus = false
 
 [gaps]
 fullscreenUsesOuterGaps = false
-size = 0.0
+size = 16.0
 
 [gaps.outer]
 bottom = 0.0
@@ -261,12 +261,6 @@ layout = "float"
 [[appRules]]
 bundleId = "com.apple.calculator"
 id = "A1F6DFB1-6137-5D35-B504-69B7AAFF689F"
-layout = "float"
-
-[[appRules]]
-appNameSubstring = "Karabiner-Elements"
-bundleId = ""
-id = "7FDB8EFA-3CF9-565B-B90F-C7175798352B"
 layout = "float"
 
 [[appRules]]
@@ -674,7 +668,7 @@ binding = "Unassigned"
 id = "consumeWindowIntoColumn"
 
 [[hotkeys]]
-binding = "Control+Option+Command+X"
+binding = "Control+Command+X"
 id = "expelWindowFromColumn"
 
 [[hotkeys]]
@@ -706,11 +700,11 @@ binding = "Unassigned"
 id = "moveWorkspaceToMonitor.down"
 
 [[hotkeys]]
-binding = "Control+Option+Command+Left Arrow"
+binding = "Control+Command+Left Arrow"
 id = "moveWindowToMonitor.left"
 
 [[hotkeys]]
-binding = "Control+Option+Command+Right Arrow"
+binding = "Control+Command+Right Arrow"
 id = "moveWindowToMonitor.right"
 
 [[hotkeys]]

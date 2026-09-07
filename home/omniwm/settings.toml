@@ -3,8 +3,7 @@ monitorDwindleOverrides = []
 monitorGapOverrides = []
 monitorNiriOverrides = []
 monitorOrientationOverrides = []
-monitorRoutingOverrides = []
-schemaVersion = 2
+schemaVersion = 3
 
 [appearance]
 mode = "dark"
@@ -82,7 +81,7 @@ rehideIntervalSeconds = 5.0
 
 [mouseWarp]
 constrainToArrangement = false
-enabled = true
+enabled = false
 margin = 1
 
 [niri]
@@ -136,6 +135,7 @@ position = "center"
 widthPercent = 50.0
 
 [routing]
+arrangements = []
 mode = "macOS"
 
 [scratchpads]
@@ -264,11 +264,6 @@ id = "A1F6DFB1-6137-5D35-B504-69B7AAFF689F"
 layout = "float"
 
 [[appRules]]
-appNameSubstring = "Karabiner-Elements"
-id = "7FDB8EFA-3CF9-565B-B90F-C7175798352B"
-layout = "float"
-
-[[appRules]]
 bundleId = "org.hammerspoon.Hammerspoon"
 id = "FA4C39FE-B756-534A-A597-1DB1EEF7537D"
 layout = "float"
@@ -286,6 +281,12 @@ layout = "float"
 [[appRules]]
 bundleId = "com.apple.Stickies"
 id = "6A689188-68AB-5B0D-98E5-DEA4B60C6EE7"
+layout = "float"
+
+[[appRules]]
+appNameSubstring = "Karabiner-Elements"
+bundleId = ""
+id = "33F87005-6C03-4B54-A80B-1524DA846355"
 layout = "float"
 
 [[hotkeys]]
@@ -525,19 +526,19 @@ binding = "Unassigned"
 id = "switchWorkspace.previous"
 
 [[hotkeys]]
-binding = "Option+Left Arrow"
+binding = "Unassigned"
 id = "focus.left"
 
 [[hotkeys]]
-binding = "Option+Down Arrow"
+binding = "Unassigned"
 id = "focus.down"
 
 [[hotkeys]]
-binding = "Option+Up Arrow"
+binding = "Unassigned"
 id = "focus.up"
 
 [[hotkeys]]
-binding = "Option+Right Arrow"
+binding = "Unassigned"
 id = "focus.right"
 
 [[hotkeys]]
@@ -637,19 +638,19 @@ binding = "Unassigned"
 id = "moveColumnToWorkspace.8"
 
 [[hotkeys]]
-binding = "Option+Shift+Left Arrow"
+binding = "Unassigned"
 id = "move.left"
 
 [[hotkeys]]
-binding = "Option+Shift+Down Arrow"
+binding = "Unassigned"
 id = "move.down"
 
 [[hotkeys]]
-binding = "Option+Shift+Up Arrow"
+binding = "Unassigned"
 id = "move.up"
 
 [[hotkeys]]
-binding = "Option+Shift+Right Arrow"
+binding = "Unassigned"
 id = "move.right"
 
 [[hotkeys]]
@@ -673,7 +674,7 @@ binding = "Unassigned"
 id = "consumeWindowIntoColumn"
 
 [[hotkeys]]
-binding = "Unassigned"
+binding = "Control+Option+Command+X"
 id = "expelWindowFromColumn"
 
 [[hotkeys]]
@@ -705,11 +706,11 @@ binding = "Unassigned"
 id = "moveWorkspaceToMonitor.down"
 
 [[hotkeys]]
-binding = "Unassigned"
+binding = "Control+Option+Command+Left Arrow"
 id = "moveWindowToMonitor.left"
 
 [[hotkeys]]
-binding = "Unassigned"
+binding = "Control+Option+Command+Right Arrow"
 id = "moveWindowToMonitor.right"
 
 [[hotkeys]]
