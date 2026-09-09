@@ -382,7 +382,7 @@ binding = "Option+2"
 id = "switchWorkspace.1"
 
 [[hotkeys]]
-binding = "Option+Shift+2"
+binding = "Option+Shift+Command+2"
 id = "moveToWorkspace.1"
 
 [[hotkeys]]
@@ -638,7 +638,7 @@ binding = "Unassigned"
 id = "moveColumnToWorkspace.8"
 
 [[hotkeys]]
-binding = "Unassigned"
+binding = "Option+Command+L"
 id = "move.left"
 
 [[hotkeys]]
@@ -650,7 +650,7 @@ binding = "Unassigned"
 id = "move.up"
 
 [[hotkeys]]
-binding = "Unassigned"
+binding = "Option+Command+R"
 id = "move.right"
 
 [[hotkeys]]

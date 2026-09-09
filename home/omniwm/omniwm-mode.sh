@@ -114,11 +114,16 @@ SETTINGS="$HOME/.config/omniwm/settings.toml"
 #   Option+Shift+Left / Right    extend the selection by a word
 #   Option+Shift+Up / Down       extend the selection by a paragraph
 #
-# So focus.* moves to Control+Option+arrow, which nothing else here uses --
-# Control+Option+Shift+arrow is moveColumn and moveWindowToWorkspace,
-# Control+Option+Command+arrow is moveWindowToMonitor above -- and move.* is
-# pinned empty rather than merely left empty, so a settings reset or a future
-# OmniWM default cannot quietly take the text shortcuts back.
+# So focus.* moves to Control+Option+arrow -- Control+Option+Shift+arrow is
+# moveColumn and moveWindowToWorkspace, and Control+Option+Command+arrow is
+# moveWindowToMonitor above -- and move.left/right go to Option+Command+L and R,
+# on the letters rather than the arrows. Option+Command+Left and Right would
+# have worked too, but they are "previous/next tab" in Safari and Chrome and
+# Control+Tab already costs tab switching once.
+#
+# move.up and move.down stay pinned empty rather than merely left empty, so a
+# settings reset or a future OmniWM default cannot quietly put them back on
+# Option+Shift+arrow and take the paragraph selection with them.
 OMNIWM_HOTKEYS=(
     "expelWindowFromColumn=Control+Option+Command+X"
     "moveWindowToMonitor.left=Control+Option+Command+Left Arrow"
@@ -128,10 +133,13 @@ OMNIWM_HOTKEYS=(
     "focus.right=Control+Option+Right Arrow"
     "focus.up=Control+Option+Up Arrow"
     "focus.down=Control+Option+Down Arrow"
-    "move.left=Unassigned"
-    "move.right=Unassigned"
+    "move.left=Option+Command+L"
+    "move.right=Option+Command+R"
     "move.up=Unassigned"
     "move.down=Unassigned"
+    # Workspace 2, and the id is base 0: switchWorkspace.0 is Option+1, so the
+    # second workspace is index 1. Reads as Option+Command+Shift+2 on the keycaps.
+    "moveToWorkspace.1=Option+Shift+Command+2"
 )
 
 ipc_up() {
